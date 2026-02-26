@@ -142,9 +142,9 @@ Before configuring event subscriptions, you need to start opencode-lark so Feish
    Open `.env` and fill in the `FEISHU_APP_ID` and `FEISHU_APP_SECRET` from Step 3.
    打开 `.env`，填入步骤 3 获取的 `FEISHU_APP_ID` 和 `FEISHU_APP_SECRET`。
 
-3. Start opencode TUI in one terminal / 在一个终端启动 opencode TUI:
+3. Start opencode server in one terminal / 在一个终端启动 opencode server:
    ```bash
-   opencode
+   OPENCODE_SERVER_PORT=4096 opencode serve
    ```
 
 4. Start opencode-lark in another terminal / 在另一个终端启动 opencode-lark:
@@ -181,7 +181,7 @@ Navigate to **Development Config → Event Subscriptions** and:
 |---|---|---|
 | Bot doesn't receive messages / 机器人收不到消息 | WebSocket not enabled or wrong subscription / 未开启长连接或事件未订阅 | Check event subscription, ensure Long Connection mode is selected / 检查事件订阅，确认选择长连接模式 |
 | "Invalid App ID or Secret" / 凭证错误 | Wrong credentials in .env / .env 中凭证有误 | Double-check App ID and App Secret from Step 3 / 从步骤 3 重新确认凭证 |
-| Messages received but no reply / 收到消息但无回复 | opencode server not running / opencode server 未启动 | Ensure `opencode` TUI is running before starting opencode-lark / 确保先启动 opencode TUI |
+| Messages received but no reply / 收到消息但无回复 | opencode server not running / opencode server 未启动 | Ensure opencode server is running: `OPENCODE_SERVER_PORT=4096 opencode serve` / 确保先启动 opencode server：`OPENCODE_SERVER_PORT=4096 opencode serve` |
 | Card not updating in real-time / 卡片不实时更新 | Rate limit or debounce delay / 频率限制或防抖延迟 | Normal behavior — updates are debounced to stay within Feishu rate limits / 正常行为，防抖处理避免触发频率限制 |
 | "应用未建立长连接" when saving Long Connection mode / 保存长连接模式时报"应用未建立长连接" | App not running — Feishu requires an active WebSocket connection before saving / 应用未启动，飞书要求先建立连接 | Start opencode-lark first (Step 6), then save the setting in Feishu console / 先完成步骤 6 启动 opencode-lark，再回飞书后台保存设置 |
 
@@ -215,14 +215,14 @@ cp .env.example .env
 Open `.env` and fill in `FEISHU_APP_ID` and `FEISHU_APP_SECRET`.
 打开 `.env` 填写 `FEISHU_APP_ID` 和 `FEISHU_APP_SECRET`。
 
-**2. Start opencode TUI / 启动 opencode TUI**
+**2. Start opencode server / 启动 opencode server**
 
 ```bash
-opencode
+OPENCODE_SERVER_PORT=4096 opencode serve
 ```
 
-The TUI starts an HTTP server on port 4096 automatically (increments if that port is taken).
-TUI 启动后自动在 4096 端口运行 HTTP server，端口被占用时自动递增。
+The opencode server listens on port 4096 by default (increments if that port is taken).
+opencode server 在 4096 端口监听，端口被占用时自动递增。
 
 **3. Start opencode-lark / 启动 opencode-lark**
 
