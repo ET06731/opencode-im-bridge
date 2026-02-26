@@ -107,18 +107,26 @@ Navigate to **App Release → Version Management & Release**, create a version a
 
 Before configuring event subscriptions, start opencode-lark so Feishu can detect the WebSocket connection.
 
-1. Clone the repo and install dependencies:
+1. Install and configure:
    ```bash
-   git clone https://github.com/guazi04/opencode-lark.git
-   cd opencode-lark
-   bun install
+   # Install globally
+   bun add -g opencode-lark
+   # or: npm install -g opencode-lark
+
+   # Or run from source
+   # git clone https://github.com/guazi04/opencode-lark.git
+   # cd opencode-lark && bun install
    ```
 
-2. Configure credentials:
+2. Create a working directory and configure credentials:
    ```bash
-   cp .env.example .env
+   mkdir opencode-lark-config && cd opencode-lark-config
    ```
-   Open `.env` and fill in the `FEISHU_APP_ID` and `FEISHU_APP_SECRET` from Step 3.
+   Create a `.env` file with your credentials:
+   ```bash
+   echo 'FEISHU_APP_ID=your_app_id' >> .env
+   echo 'FEISHU_APP_SECRET=your_app_secret' >> .env
+   ```
 
 3. Start opencode server in one terminal:
    ```bash
@@ -127,8 +135,10 @@ Before configuring event subscriptions, start opencode-lark so Feishu can detect
 
 4. Start opencode-lark in another terminal:
    ```bash
-   bun run dev
+   opencode-lark
    ```
+   If running from source: `bun run dev`
+
    Keep this running while you configure event subscriptions in the next step.
 
 > **Tip**: To see messages in real-time in the TUI, open a third terminal and attach to the session:
@@ -191,8 +201,22 @@ Otherwise:
 
 ### Steps
 
-**1. Clone, install, and configure**
+**1. Install and configure**
 
+```bash
+# Global install (recommended)
+bun add -g opencode-lark
+# or: npm install -g opencode-lark
+```
+
+Create a working directory and `.env` file:
+```bash
+mkdir opencode-lark-config && cd opencode-lark-config
+echo 'FEISHU_APP_ID=your_app_id' >> .env
+echo 'FEISHU_APP_SECRET=your_app_secret' >> .env
+```
+
+Or clone and run from source:
 ```bash
 git clone https://github.com/guazi04/opencode-lark.git
 cd opencode-lark
@@ -215,14 +239,10 @@ The opencode server listens on port 4096 by default (increments if that port is 
 In a second terminal:
 
 ```bash
-bun run dev
-```
-
-Or from a global install:
-
-```bash
 opencode-lark
 ```
+
+If running from source: `bun run dev`
 
 `dev` mode runs with `--watch`, so code changes trigger an automatic restart.
 

@@ -109,18 +109,26 @@ bun install
 
 在配置事件订阅之前，需要先启动 opencode-lark，飞书才能检测到 WebSocket 连接。
 
-1. 克隆仓库并安装依赖：
+1. 安装并配置：
    ```bash
-   git clone https://github.com/guazi04/opencode-lark.git
-   cd opencode-lark
-   bun install
+   # 全局安装
+   bun add -g opencode-lark
+   # 或：npm install -g opencode-lark
+
+   # 或从源码运行
+   # git clone https://github.com/guazi04/opencode-lark.git
+   # cd opencode-lark && bun install
    ```
 
-2. 配置凭证：
+2. 创建工作目录并配置凭证：
    ```bash
-   cp .env.example .env
+   mkdir opencode-lark-config && cd opencode-lark-config
    ```
-   打开 `.env`，填入步骤 3 获取的 `FEISHU_APP_ID` 和 `FEISHU_APP_SECRET`。
+   创建 `.env` 文件填写凭证：
+   ```bash
+   echo 'FEISHU_APP_ID=your_app_id' >> .env
+   echo 'FEISHU_APP_SECRET=your_app_secret' >> .env
+   ```
 
 3. 在一个终端启动 opencode server：
    ```bash
@@ -129,8 +137,10 @@ bun install
 
 4. 在另一个终端启动 opencode-lark：
    ```bash
-   bun run dev
+   opencode-lark
    ```
+   如从源码运行：`bun run dev`
+
    保持运行，然后继续下一步配置事件订阅。
 
 > **提示**：要在 TUI 中实时查看消息，打开第三个终端并 attach 到 session：
@@ -193,8 +203,22 @@ bun install
 
 ### 步骤
 
-**1. 克隆、安装并配置**
+**1. 安装并配置**
 
+```bash
+# 全局安装（推荐）
+bun add -g opencode-lark
+# 或：npm install -g opencode-lark
+```
+
+创建工作目录和 `.env` 文件：
+```bash
+mkdir opencode-lark-config && cd opencode-lark-config
+echo 'FEISHU_APP_ID=your_app_id' >> .env
+echo 'FEISHU_APP_SECRET=your_app_secret' >> .env
+```
+
+或从源码运行：
 ```bash
 git clone https://github.com/guazi04/opencode-lark.git
 cd opencode-lark
@@ -217,14 +241,10 @@ opencode server 在 4096 端口监听，端口被占用时自动递增。
 在第二个终端：
 
 ```bash
-bun run dev
-```
-
-或通过全局安装运行：
-
-```bash
 opencode-lark
 ```
+
+如从源码运行：`bun run dev`
 
 `dev` 模式带 `--watch`，代码修改后自动重启。
 
