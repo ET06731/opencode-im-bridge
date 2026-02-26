@@ -150,7 +150,20 @@ Navigate to **Development Config → Event Subscriptions** and:
 
 > ⚠️ **Important**: opencode-lark must be running (Step 6) before you can save Long Connection mode. If you see "应用未建立长连接", go back to Step 6 and ensure the app is running.
 
-> **Optional**: For interactive card buttons (e.g. card action callbacks), you may also configure a webhook server URL under **Card Engine** settings. Set `FEISHU_WEBHOOK_PORT` and expose it via a reverse proxy.
+### 8. Subscribe to Callbacks (Interactive Cards)
+
+Navigate to **Development Config → Event Subscriptions → Callback Subscription** (回调订阅) — this is a **separate section** from Event Subscription above.
+
+1. Select **Long Connection** (WebSocket) mode
+2. Add the following callback:
+
+| Callback Name | Callback Identifier | Purpose | Required |
+|---|---|---|---|
+| 卡片回传交互 | `card.action.trigger` | Receive card button clicks (question answers, permission replies) | ✅ |
+
+> ⚠️ **Important**: This is required for interactive cards (questions & permissions). Without it, clicking card buttons shows error `200340`.
+>
+> Event Subscription and Callback Subscription are **two separate settings**. You must configure both.
 
 ### Troubleshooting
 
@@ -160,8 +173,8 @@ Navigate to **Development Config → Event Subscriptions** and:
 | "Invalid App ID or Secret" | Wrong credentials in .env | Double-check App ID and App Secret from Step 3 |
 | Messages received but no reply | opencode server not running | Ensure opencode server is running: `OPENCODE_SERVER_PORT=4096 opencode serve` |
 | Card not updating in real-time | Rate limit or debounce delay | Normal behavior — updates are debounced to stay within Feishu rate limits |
+| Error `200340` when clicking card buttons | Callback subscription not configured | Go to **Callback Subscription** (回调订阅) → select Long Connection → add `card.action.trigger` |
 | "应用未建立长连接" when saving Long Connection mode | App not running — Feishu requires an active WebSocket connection before saving | Start opencode-lark first (Step 6), then save the setting in Feishu console |
-
 ---
 
 ## Quick Start
