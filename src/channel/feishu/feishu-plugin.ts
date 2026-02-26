@@ -24,7 +24,7 @@ import type { AppConfig } from "../../utils/config.js"
 import type { FeishuApiClient } from "../../feishu/api-client.js"
 import type { CardKitClient } from "../../feishu/cardkit-client.js"
 import type { Logger } from "../../utils/logger.js"
-import type { FeishuMessageEvent } from "../../types.js"
+import type { FeishuMessageEvent, FeishuCardAction } from "../../types.js"
 import { buildResponseCard } from "../../feishu/card-builder.js"
 import { StreamingCardSession } from "../../streaming/streaming-card.js"
 import { createFeishuWSGateway } from "../../feishu/ws-client.js"
@@ -37,6 +37,7 @@ export interface FeishuPluginDeps {
   cardkitClient: CardKitClient
   logger: Logger
   onMessage?: (event: FeishuMessageEvent) => Promise<void>
+  onCardAction?: (action: FeishuCardAction) => Promise<void>
 }
 
 // ── Plugin ──
@@ -90,6 +91,7 @@ export class FeishuPlugin extends BaseChannelPlugin {
               await deps.onMessage(event)
             }
           },
+          onCardAction: deps.onCardAction,
         })
         gw.start()
       },

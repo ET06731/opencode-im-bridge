@@ -6,18 +6,18 @@
 
 import * as Lark from "@larksuiteoapi/node-sdk"
 import { createLogger } from "../utils/logger.js"
-import type { FeishuMessageEvent } from "../types.js"
-
+import type { FeishuMessageEvent, FeishuCardAction } from "../types.js"
 const logger = createLogger("feishu-ws")
 
 interface WSClientOptions {
   appId: string
   appSecret: string
   onMessage: (event: FeishuMessageEvent) => Promise<void>
+  onCardAction?: (action: FeishuCardAction) => Promise<void>
 }
 
 export function createFeishuWSGateway(options: WSClientOptions) {
-  const { appId, appSecret, onMessage } = options
+  const { appId, appSecret, onMessage, onCardAction } = options
 
   const eventDispatcher = new Lark.EventDispatcher({})
 
@@ -56,6 +56,26 @@ export function createFeishuWSGateway(options: WSClientOptions) {
       }
     },
   })
+
+  // Register card.action.trigger handler (receives card button clicks via WebSocket)
+  if (onCardAction) {
+    eventDispatcher.register({
+      "card.action.trigger": async (data: any) => {
+        try {
+          const action: FeishuCardAction = {
+            action: data.action ?? { tag: "button", value: {} },
+            open_message_id: data.context?.open_message_id ?? "",
+            open_chat_id: data.context?.open_chat_id ?? "",
+            operator: { open_id: data.operator?.open_id ?? "unknown" },
+          }
+          logger.info(`Card action received: ${action.action?.value?.action ?? "unknown"}`)
+          await onCardAction(action)
+        } catch (err) {
+          logger.error("Error handling card action:", err)
+        }
+      },
+    })
+  }
 
   const wsClient = new Lark.WSClient({
     appId,

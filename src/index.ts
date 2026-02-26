@@ -241,6 +241,7 @@ async function main(): Promise<void> {
     cardkitClient,
     logger,
     onMessage: handleMessage,
+    onCardAction: handleCardAction,
   })
 
   const channelManager = new ChannelManager({ logger })
