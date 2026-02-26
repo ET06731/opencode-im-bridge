@@ -48,6 +48,9 @@ opencode server  (localhost:4096)
     ↕  stdin/stdout
 opencode TUI
 ```
+> `opencode serve` runs the HTTP server. Use `opencode attach` in a separate terminal to view the session in TUI.
+> `opencode serve` 运行 HTTP server，在另一个终端用 `opencode attach` 查看 TUI 会话。
+
 
 **Inbound (飞书 → TUI):** Feishu sends a message over WebSocket. opencode-lark normalizes it, resolves the bound session, prepends conversation history, then POSTs to the opencode API. The TUI sees the message immediately.
 
@@ -153,6 +156,15 @@ Before configuring event subscriptions, you need to start opencode-lark so Feish
    ```
    Keep this running while you configure event subscriptions in the next step.
    保持运行，然后继续下一步配置事件订阅。
+> **Tip / 提示**: To see messages in real-time in the TUI, open a third terminal and attach to the session:
+> ```bash
+> opencode attach http://127.0.0.1:4096 --session {session_id}
+> ```
+> The `session_id` is shown in opencode-lark's startup logs (e.g. `Bound to TUI session: ... → ses_xxxxx`).
+>
+> 要在 TUI 中实时查看消息，打开第三个终端并 attach 到 session：
+> `session_id` 会在 opencode-lark 启动日志中显示（如 `Bound to TUI session: ... → ses_xxxxx`）。
+
 
 ### 7. Subscribe to Events / 订阅事件
 
@@ -249,6 +261,15 @@ Send any message to your Feishu bot. On first contact it auto-discovers the late
 
 After that, Feishu and the TUI share a live two-way channel.
 首次消息后飞书收到 session 绑定通知，之后双向消息互通。
+> **Tip / 提示**: To see messages in real-time in the TUI, open a third terminal and attach to the session:
+> ```bash
+> opencode attach http://127.0.0.1:4096 --session {session_id}
+> ```
+> The `session_id` is shown in opencode-lark's startup logs (e.g. `Bound to TUI session: ... → ses_xxxxx`).
+>
+> 要在 TUI 中实时查看消息，打开第三个终端并 attach 到 session：
+> `session_id` 会在 opencode-lark 启动日志中显示（如 `Bound to TUI session: ... → ses_xxxxx`）。
+
 
 ---
 
