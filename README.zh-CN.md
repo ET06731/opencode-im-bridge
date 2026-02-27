@@ -13,6 +13,7 @@
 ## 功能特性
 
 - **实时桥接** — 飞书消息即时出现在 opencode TUI，agent 回复以动态卡片形式推送回飞书。
+- **交互式卡片** — agent 的提问和权限请求以可点击的飞书卡片呈现，直接在聊天中回答或审批，无需切换到 TUI。
 - **WebSocket 长连接** — 采用飞书 WebSocket 长连接模式，无需公网 IP，无需轮询。
 - **SSE 流式输出** — 订阅 opencode SSE 事件流，防抖处理卡片更新，避免触发频率限制。
 - **对话记忆** — SQLite 存储每个会话的对话历史，每次消息自动携带上下文。
@@ -46,6 +47,8 @@ opencode TUI
 
 ## 安装
 
+> **注意**：[Bun](https://bun.sh) 是必需的运行时，本项目使用 `bun:sqlite`，仅 Bun 支持。
+
 ```bash
 # 全局安装
 npm install -g opencode-lark
@@ -60,6 +63,77 @@ git clone https://github.com/guazi04/opencode-lark.git
 cd opencode-lark
 bun install
 ```
+
+---
+
+## 快速开始
+
+5 分钟即可上手。你需要一个开启了机器人能力的飞书开放平台应用 — 如果还没有，请参阅下方[飞书应用配置](#飞书应用配置)完成创建。
+
+### 前置要求
+
+- **[Bun](https://bun.sh)**（必需运行时，本项目使用 `bun:sqlite`，仅 Bun 支持）
+- **[opencode](https://opencode.ai)** 已安装在本地
+- 已配置凭证和事件订阅的飞书开放平台应用（参见[飞书应用配置](#飞书应用配置)）
+
+### 步骤
+
+**1. 安装并配置**
+
+```bash
+# 全局安装（推荐）
+bun add -g opencode-lark
+# 或：npm install -g opencode-lark
+```
+
+创建工作目录和 `.env` 文件：
+```bash
+mkdir opencode-lark-config && cd opencode-lark-config
+echo 'FEISHU_APP_ID=your_app_id' >> .env
+echo 'FEISHU_APP_SECRET=your_app_secret' >> .env
+```
+
+或从源码运行：
+```bash
+git clone https://github.com/guazi04/opencode-lark.git
+cd opencode-lark
+bun install
+cp .env.example .env
+```
+
+打开 `.env` 填写 `FEISHU_APP_ID` 和 `FEISHU_APP_SECRET`。
+
+**2. 启动 opencode server**
+
+```bash
+OPENCODE_SERVER_PORT=4096 opencode serve
+```
+
+opencode server 在 4096 端口监听，端口被占用时自动递增。
+
+**3. 启动 opencode-lark**
+
+在第二个终端：
+
+```bash
+opencode-lark
+```
+
+如从源码运行：`bun run dev`
+
+`dev` 模式带 `--watch`，代码修改后自动重启。
+
+**4. 发送测试消息**
+
+向飞书机器人发送任意消息。首次联系时自动发现最新 TUI session 并回复：
+
+> Connected to session: ses_xxxxx
+
+首次消息后飞书收到 session 绑定通知，之后双向消息互通。要在 TUI 中查看：
+```bash
+opencode attach http://127.0.0.1:4096 --session {session_id}
+```
+`session_id` 会在 opencode-lark 启动日志中显示（如 `Bound to TUI session: ... → ses_xxxxx`）。
 
 ---
 
@@ -160,11 +234,11 @@ bun install
 |---|---|---|---|
 | 接收消息 | `im.message.receive_v1` | 接收用户消息 | ✅ |
 
-> ⚠️ **重要**：保存长连接模式前 opencode-lark 必须处于运行状态（步骤 6）。如果看到“应用未建立长连接”错误，请返回步骤 6 确认应用已启动。
+> ⚠️ **重要**：保存长连接模式前 opencode-lark 必须处于运行状态（步骤 6）。如果看到"应用未建立长连接"错误，请返回步骤 6 确认应用已启动。
 
 ### 8. 订阅回调（交互式卡片）
 
-进入**开发配置 → 事件与回调 → 回调订阅** — 这是与上方“事件订阅”**独立的配置项**。
+进入**开发配置 → 事件与回调 → 回调订阅** — 这是与上方"事件订阅"**独立的配置项**。
 
 1. 选择**长连接**模式
 2. 添加以下回调：
@@ -186,75 +260,7 @@ bun install
 | 收到消息但无回复 | opencode server 未启动 | 确保先启动 opencode server：`OPENCODE_SERVER_PORT=4096 opencode serve` |
 | 卡片不实时更新 | 频率限制或防抖延迟 | 正常行为，防抖处理避免触发频率限制 |
 | 点击卡片按钮报错 `200340` | 回调订阅未配置 | 进入**回调订阅** → 选择长连接 → 添加 `card.action.trigger` |
-| 保存长连接模式时报“应用未建立长连接” | 应用未启动，飞书要求先建立连接 | 先完成步骤 6 启动 opencode-lark，再回飞书后台保存设置 |
----
-
-## 快速开始
-
-如果已完成上述飞书应用配置，opencode-lark 应该已经在运行。直接跳到下方**发送测试消息**。
-
-否则按以下步骤操作：
-
-### 前置要求
-
-- **[Bun](https://bun.sh)**（必需运行时，本项目使用 `bun:sqlite`，仅 Bun 支持）
-- **[opencode](https://opencode.ai)** 已安装在本地
-- 已配置凭证和事件订阅的飞书开放平台应用（参见[飞书应用配置](#飞书应用配置)）
-
-### 步骤
-
-**1. 安装并配置**
-
-```bash
-# 全局安装（推荐）
-bun add -g opencode-lark
-# 或：npm install -g opencode-lark
-```
-
-创建工作目录和 `.env` 文件：
-```bash
-mkdir opencode-lark-config && cd opencode-lark-config
-echo 'FEISHU_APP_ID=your_app_id' >> .env
-echo 'FEISHU_APP_SECRET=your_app_secret' >> .env
-```
-
-或从源码运行：
-```bash
-git clone https://github.com/guazi04/opencode-lark.git
-cd opencode-lark
-bun install
-cp .env.example .env
-```
-
-打开 `.env` 填写 `FEISHU_APP_ID` 和 `FEISHU_APP_SECRET`。
-
-**2. 启动 opencode server**
-
-```bash
-OPENCODE_SERVER_PORT=4096 opencode serve
-```
-
-opencode server 在 4096 端口监听，端口被占用时自动递增。
-
-**3. 启动 opencode-lark**
-
-在第二个终端：
-
-```bash
-opencode-lark
-```
-
-如从源码运行：`bun run dev`
-
-`dev` 模式带 `--watch`，代码修改后自动重启。
-
-**4. 发送测试消息**
-
-向飞书机器人发送任意消息。首次联系时自动发现最新 TUI session 并回复：
-
-> Connected to session: ses_xxxxx
-
-首次消息后飞书收到 session 绑定通知，之后双向消息互通。
+| 保存长连接模式时报"应用未建立长连接" | 应用未启动，飞书要求先建立连接 | 先完成步骤 6 启动 opencode-lark，再回飞书后台保存设置 |
 
 ---
 
@@ -267,7 +273,7 @@ opencode-lark
 | `FEISHU_APP_ID` | 是 | | 飞书应用 App ID |
 | `FEISHU_APP_SECRET` | 是 | | 飞书应用 App Secret |
 | `OPENCODE_SERVER_URL` | 否 | `http://localhost:4096` | opencode server 地址 |
-| `FEISHU_WEBHOOK_PORT` | 否 | `3001` | 卡片回调端口 |
+| `FEISHU_WEBHOOK_PORT` | 否 | `3001` | HTTP webhook 回退端口（仅在不使用 WebSocket 接收卡片回调时需要） |
 | `OPENCODE_CWD` | 否 | `process.cwd()` | 覆盖 session 发现目录 |
 | `FEISHU_VERIFICATION_TOKEN` | 否 | | 事件订阅验证 token |
 | `FEISHU_ENCRYPT_KEY` | 否 | | 事件加密密钥 |
@@ -287,8 +293,8 @@ opencode-lark
     "webhookPort": 3001,
     "encryptKey": "${FEISHU_ENCRYPT_KEY}"
   },
-  // Default opencode agent name. This should match an agent configured in your opencode setup.
-  // Common values: "build", "claude", "code" — check your opencode config for available agents.
+  // 默认 opencode agent 名称，需与 opencode 配置中的 agent 匹配。
+  // 常见值："build"、"claude"、"code" — 请查看你的 opencode 配置。
   "defaultAgent": "build",
   "dataDir": "./data",
   "progress": {
@@ -306,16 +312,16 @@ opencode-lark
 
 ```
 src/
-├── index.ts         # Entry point, 9-phase startup + graceful shutdown
-├── types.ts         # Shared type definitions
-├── channel/         # ChannelPlugin interface, ChannelManager, FeishuPlugin
-├── feishu/          # Feishu REST client, CardKit, WebSocket, message dedup
-├── handler/         # MessageHandler (inbound pipeline) + StreamingBridge (SSE → cards)
-├── session/         # TUI session discovery, thread→session mapping, progress cards
-├── streaming/       # EventProcessor (SSE parsing), SessionObserver, SubAgentTracker
-├── memory/          # SQLite-backed per-thread conversation history
-├── cron/            # CronService (scheduled jobs) + HeartbeatService
-└── utils/           # Config loader, logger, SQLite init, EventListenerMap
+├── index.ts         # 入口，9 阶段启动 + 优雅关闭
+├── types.ts         # 共享类型定义
+├── channel/         # ChannelPlugin 接口、ChannelManager、FeishuPlugin
+├── feishu/          # 飞书 REST 客户端、CardKit、WebSocket、消息去重
+├── handler/         # MessageHandler（入站管道）+ StreamingBridge（SSE → 卡片）
+├── session/         # TUI session 发现、thread→session 映射、进度卡片
+├── streaming/       # EventProcessor（SSE 解析）、SessionObserver、SubAgentTracker
+├── memory/          # SQLite 驱动的会话级对话记忆
+├── cron/            # CronService（定时任务）+ HeartbeatService
+└── utils/           # 配置加载、日志、SQLite 初始化、EventListenerMap
 ```
 
 ---

@@ -13,6 +13,7 @@
 ## Features
 
 - **Real-time bridging** — Messages sent in Feishu arrive in your opencode TUI instantly, and agent replies stream back as live-updating cards.
+- **Interactive cards** — Agent questions and permission requests appear as clickable Feishu cards. Answer or approve directly from the chat — no need to switch to the TUI.
 - **WebSocket connection** — Uses Feishu's long-lived WebSocket mode. No webhook polling, no public IP required.
 - **SSE streaming** — Consumes the opencode SSE event stream and debounces card updates to stay within rate limits.
 - **Conversation memory** — SQLite-backed per-thread history is prepended to each message, giving the agent context across turns.
@@ -46,6 +47,8 @@ opencode TUI
 
 ## Install
 
+> **Note**: [Bun](https://bun.sh) is the required runtime — this project uses `bun:sqlite` which is Bun-only.
+
 ```bash
 # Global install
 npm install -g opencode-lark
@@ -60,6 +63,77 @@ git clone https://github.com/guazi04/opencode-lark.git
 cd opencode-lark
 bun install
 ```
+
+---
+
+## Quick Start
+
+Get up and running in 5 minutes. You'll need a Feishu Open Platform app with bot capability — see [Feishu App Setup](#feishu-app-setup) below for the detailed walkthrough if you haven't created one yet.
+
+### Prerequisites
+
+- **[Bun](https://bun.sh)** (required runtime — this project uses `bun:sqlite` which is Bun-only)
+- **[opencode](https://opencode.ai)** installed locally
+- A **Feishu Open Platform app** with credentials and event subscriptions configured (see [Feishu App Setup](#feishu-app-setup))
+
+### Steps
+
+**1. Install and configure**
+
+```bash
+# Global install (recommended)
+bun add -g opencode-lark
+# or: npm install -g opencode-lark
+```
+
+Create a working directory and `.env` file:
+```bash
+mkdir opencode-lark-config && cd opencode-lark-config
+echo 'FEISHU_APP_ID=your_app_id' >> .env
+echo 'FEISHU_APP_SECRET=your_app_secret' >> .env
+```
+
+Or clone and run from source:
+```bash
+git clone https://github.com/guazi04/opencode-lark.git
+cd opencode-lark
+bun install
+cp .env.example .env
+```
+
+Open `.env` and fill in `FEISHU_APP_ID` and `FEISHU_APP_SECRET`.
+
+**2. Start opencode server**
+
+```bash
+OPENCODE_SERVER_PORT=4096 opencode serve
+```
+
+The opencode server listens on port 4096 by default (increments if that port is taken).
+
+**3. Start opencode-lark**
+
+In a second terminal:
+
+```bash
+opencode-lark
+```
+
+If running from source: `bun run dev`
+
+`dev` mode runs with `--watch`, so code changes trigger an automatic restart.
+
+**4. Send a test message**
+
+Send any message to your Feishu bot. On first contact it auto-discovers the latest TUI session and replies:
+
+> Connected to session: ses_xxxxx
+
+After that, Feishu and the TUI share a live two-way channel. To attach the TUI:
+```bash
+opencode attach http://127.0.0.1:4096 --session {session_id}
+```
+The `session_id` is shown in opencode-lark's startup logs (e.g. `Bound to TUI session: ... → ses_xxxxx`).
 
 ---
 
@@ -185,74 +259,6 @@ Navigate to **Development Config → Event Subscriptions → Callback Subscripti
 | Card not updating in real-time | Rate limit or debounce delay | Normal behavior — updates are debounced to stay within Feishu rate limits |
 | Error `200340` when clicking card buttons | Callback subscription not configured | Go to **Callback Subscription** (回调订阅) → select Long Connection → add `card.action.trigger` |
 | "应用未建立长连接" when saving Long Connection mode | App not running — Feishu requires an active WebSocket connection before saving | Start opencode-lark first (Step 6), then save the setting in Feishu console |
----
-
-## Quick Start
-
-If you've completed [Feishu App Setup](#feishu-app-setup) above, opencode-lark is already running. Skip to **Send a test message** below.
-
-Otherwise:
-
-### Prerequisites
-
-- **[Bun](https://bun.sh)** (required runtime — this project uses `bun:sqlite` which is Bun-only)
-- **[opencode](https://opencode.ai)** installed locally
-- A **Feishu Open Platform app** with credentials and event subscriptions configured (see [Feishu App Setup](#feishu-app-setup))
-
-### Steps
-
-**1. Install and configure**
-
-```bash
-# Global install (recommended)
-bun add -g opencode-lark
-# or: npm install -g opencode-lark
-```
-
-Create a working directory and `.env` file:
-```bash
-mkdir opencode-lark-config && cd opencode-lark-config
-echo 'FEISHU_APP_ID=your_app_id' >> .env
-echo 'FEISHU_APP_SECRET=your_app_secret' >> .env
-```
-
-Or clone and run from source:
-```bash
-git clone https://github.com/guazi04/opencode-lark.git
-cd opencode-lark
-bun install
-cp .env.example .env
-```
-
-Open `.env` and fill in `FEISHU_APP_ID` and `FEISHU_APP_SECRET`.
-
-**2. Start opencode server**
-
-```bash
-OPENCODE_SERVER_PORT=4096 opencode serve
-```
-
-The opencode server listens on port 4096 by default (increments if that port is taken).
-
-**3. Start opencode-lark**
-
-In a second terminal:
-
-```bash
-opencode-lark
-```
-
-If running from source: `bun run dev`
-
-`dev` mode runs with `--watch`, so code changes trigger an automatic restart.
-
-**4. Send a test message**
-
-Send any message to your Feishu bot. On first contact it auto-discovers the latest TUI session and replies:
-
-> Connected to session: ses_xxxxx
-
-After that, Feishu and the TUI share a live two-way channel. To attach the TUI, see the tip in [Step 6](#6-configure--start-opencode-lark).
 
 ---
 
@@ -265,7 +271,7 @@ After that, Feishu and the TUI share a live two-way channel. To attach the TUI, 
 | `FEISHU_APP_ID` | yes | | Feishu App ID |
 | `FEISHU_APP_SECRET` | yes | | Feishu App Secret |
 | `OPENCODE_SERVER_URL` | no | `http://localhost:4096` | opencode server URL |
-| `FEISHU_WEBHOOK_PORT` | no | `3001` | Card action callback port |
+| `FEISHU_WEBHOOK_PORT` | no | `3001` | HTTP webhook fallback port (only needed if not using WebSocket for card callbacks) |
 | `OPENCODE_CWD` | no | `process.cwd()` | Override session discovery directory |
 | `FEISHU_VERIFICATION_TOKEN` | no | | Event subscription verification token |
 | `FEISHU_ENCRYPT_KEY` | no | | Event encryption key |
