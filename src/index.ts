@@ -30,6 +30,7 @@ import { EventProcessor } from "./streaming/event-processor.js"
 import { SubAgentTracker } from "./streaming/subagent-tracker.js"
 import { createMessageHandler } from "./handler/message-handler.js"
 import { createStreamingBridge } from "./handler/streaming-integration.js"
+import { createCommandHandler } from "./handler/command-handler.js"
 import { createSessionObserver } from "./streaming/session-observer.js"
 import { addListener, removeListener } from "./utils/event-listeners.js"
 import { createSubAgentCardHandler } from "./streaming/subagent-card.js"
@@ -169,6 +170,14 @@ async function main(): Promise<void> {
     seenInteractiveIds,
   })
 
+
+  const commandHandler = createCommandHandler({
+    serverUrl,
+    sessionManager,
+    feishuClient,
+    logger,
+  })
+
   const handleMessage = createMessageHandler({
     serverUrl,
     sessionManager,
@@ -181,6 +190,7 @@ async function main(): Promise<void> {
     logger,
     streamingBridge,
     observer,
+    commandHandler,
   })
 
   // Create card action handlers
@@ -211,6 +221,16 @@ async function main(): Promise<void> {
     }
     if (actionType === "question_answer" || actionType === "permission_reply") {
       return interactiveHandler(action)
+    }
+    if (actionType === "command_execute") {
+      const cmd = action.action?.value?.command
+      if (cmd) {
+        const chatId = action.open_chat_id
+        const messageId = action.open_message_id
+        // For card callbacks, use chatId as feishuKey (best-effort for p2p)
+        await commandHandler(chatId, chatId, messageId, cmd)
+      }
+      return
     }
     logger.warn(`Unknown card action type: ${actionType}`)
   }

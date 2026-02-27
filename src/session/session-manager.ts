@@ -13,6 +13,7 @@ interface SessionManagerOptions {
 export interface SessionManager {
   getOrCreate(feishuKey: string, agent?: string): Promise<string>
   getSession(feishuKey: string): SessionMapping | null
+  deleteMapping(feishuKey: string): boolean
   cleanup(maxAgeMs?: number): number
 }
 
@@ -65,6 +66,10 @@ export function createSessionManager(
 
   const cleanupStmt = db.prepare(
     "DELETE FROM feishu_sessions WHERE last_active < ?",
+  )
+
+  const deleteMappingStmt = db.prepare(
+    "DELETE FROM feishu_sessions WHERE feishu_key = ?",
   )
 
   async function discoverTuiSession(): Promise<TuiSession | null> {
@@ -127,6 +132,14 @@ export function createSessionManager(
 
     getSession(feishuKey) {
       return (getStmt.get(feishuKey) as SessionMapping | undefined) ?? null
+    },
+
+    deleteMapping(feishuKey) {
+      const result = deleteMappingStmt.run(feishuKey)
+      if (result.changes > 0) {
+        logger.info(`Deleted session mapping for ${feishuKey}`)
+      }
+      return result.changes > 0
     },
 
     cleanup(maxAgeMs = 30 * 60 * 1000) {

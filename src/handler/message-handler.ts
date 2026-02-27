@@ -17,6 +17,7 @@ import type { StreamingBridge } from "./streaming-integration.js"
 import type { SessionObserver } from "../streaming/session-observer.js"
 import type { EventListenerMap } from "../utils/event-listeners.js"
 import { addListener, removeListener } from "../utils/event-listeners.js"
+import type { CommandHandler } from "./command-handler.js"
 
 // ── Dependency injection interface ──
 
@@ -32,6 +33,7 @@ export interface HandlerDeps {
   logger: Logger
   streamingBridge?: StreamingBridge
   observer?: SessionObserver
+  commandHandler?: CommandHandler
 }
 
 // ── Constants ──
@@ -92,6 +94,12 @@ export function createMessageHandler(
           : `${event.chat_id}:${event.message_id}`
 
     logger.info(`Message from ${feishuKey}: ${userText.slice(0, 80)}...`)
+
+    // ── 4b. Check for slash command ──
+    if (userText.startsWith("/") && deps.commandHandler) {
+      const handled = await deps.commandHandler(feishuKey, event.chat_id, event.message_id, userText.trim())
+      if (handled) return
+    }
 
     // ── 5. Send thinking indicator ──
     // With streaming bridge: add emoji reaction to user message.
