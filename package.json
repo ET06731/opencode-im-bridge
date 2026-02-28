@@ -1,6 +1,6 @@
 {
   "name": "opencode-lark",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Bridge Feishu/Lark group chats to opencode TUI sessions — real-time two-way messaging with streaming cards / 飞书群聊 ↔ opencode TUI 双向实时桥接",
   "license": "MIT",
   "keywords": [
