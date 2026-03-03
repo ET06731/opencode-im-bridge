@@ -48,6 +48,7 @@ export function createFeishuWSGateway(options: WSClientOptions) {
             message_type: msg.message_type,
             content: msg.content,
           },
+          mentions: msg.mentions,
         }
 
         await onMessage(messageEvent)

@@ -97,6 +97,7 @@ export async function createFeishuGateway(
         message_type: message["message_type"] as string,
         content: message["content"] as string,
       },
+      mentions: message["mentions"] as Array<{ id: { open_id: string } }>,
     }
 
     onMessage(messageEvent).catch((err) => {
