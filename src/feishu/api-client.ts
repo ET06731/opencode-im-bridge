@@ -50,9 +50,7 @@ async function downloadResourceImpl(
 ): Promise<{ data: Buffer, filename?: string }> {
   const token = await getToken()
 
-  const urlPath = type === "image"
-    ? `/im/v1/images/${fileKey}`
-    : `/im/v1/messages/${messageId}/resources/${fileKey}?type=file`
+  const urlPath = `/im/v1/messages/${messageId}/resources/${fileKey}?type=${type}`
 
   const response = await fetch(`${FEISHU_BASE_URL}${urlPath}`, {
     method: "GET",
