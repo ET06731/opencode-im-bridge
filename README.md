@@ -288,7 +288,8 @@ Navigate to **Development Config → Event Subscriptions → Callback Subscripti
   "progress": {
     "debounceMs": 500,
     "maxDebounceMs": 3000
-  }
+  },
+  "messageDebounceMs": 10000  // Debounce timer for batching rapid multi-message inputs (text=immediate, media=buffer)
 }
 ```
 

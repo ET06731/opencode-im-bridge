@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## 0.1.19 (2026-03-04)
+
+### Features
+
+- **Message debounce/batching**: Smart batching of rapid multi-message inputs (e.g. image + text combos). Text/post messages trigger immediate flush; media messages buffer with a configurable 10s timer fallback. Configure via `messageDebounceMs` in config.
+- **Graceful shutdown**: `dispose()` flushes all pending debounce buffers on process exit.
+
+### Bug Fixes
+
+- **Debounce key isolation**: Messages now keyed by `open_id:feishuKey` (includes root_id for thread replies), preventing cross-thread message merging.
+- **Reaction cleanup**: "Typing" reaction is now correctly removed from the original reaction message, not the last message in a batch.
+- **Init race condition**: Per-key initialization guard ensures the debounce timer cannot fire before thinking/reaction context is set, even under concurrent webhook delivery.
+- **Text-during-init safety**: Text messages arriving while a debounce key is initializing are deferred until init completes, preventing premature flushes without context.
+- **Error resilience**: `try/finally` guarantees init completion even if `sendThinking()` or `addReaction()` fails.
+
 ## [0.1.17] - 2026-03-04
 
 ### Fixed
