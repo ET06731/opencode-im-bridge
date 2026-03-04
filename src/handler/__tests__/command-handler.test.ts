@@ -154,7 +154,8 @@ describe("createCommandHandler", () => {
       expect(content.header?.title?.content).toContain("选择会话")
       // Verify buttons are created for each session
       const actionElements = content.elements?.filter((e: any) => e.tag === "action")
-      expect(actionElements).toHaveLength(2)
+      // 2 from API + 1 current session (ses-123) not in API list → prepended
+      expect(actionElements).toHaveLength(3)
     })
 
     it("replies with text when no sessions exist", async () => {
