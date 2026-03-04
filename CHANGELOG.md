@@ -4,6 +4,36 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.1.17] - 2026-03-04
+
+### Fixed
+
+- Outbound media: in the event-driven flow, `sendDetectedFiles()` is now called only when no `StreamingBridge` is active, preventing duplicate uploads/sends
+
+## [0.1.16] - 2026-03-04
+
+### Fixed
+
+- Outbound media 文件路径正则扩展支持中文标点，修复含中文符号的路径无法被正确识别的问题
+
+## [0.1.15] - 2026-03-04
+
+### Changed
+
+- Lark 上下文签名策略调整：每条飞书消息都携带签名标记，首条消息注入完整上下文说明，后续消息仅附加简短 `[Lark]` 前缀，减少 token 消耗
+
+### Lark MCP Integration — 2026-03-04 (18/18 tools passed)
+
+End-to-end validation of `lark-openapi-mcp` tool chain — all tools callable directly from opencode agent:
+
+| Category | Tools | Status |
+|----------|-------|--------|
+| docx | import, markdownWrite, markdownRead, rawContent, search | ✅ 5/5 |
+| drive | upload, download | ✅ 2/2 |
+| bitable | create app, create table, list tables, list fields, create/search/update record | ✅ 6/6 |
+| im | chat list, chat members | ✅ 2/2 |
+| wiki | search, getNode | ✅ 2/2 |
+
 ## [0.1.14] - 2026-03-04
 
 ### Added

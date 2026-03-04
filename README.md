@@ -296,6 +296,52 @@ Supports `${ENV_VAR}` interpolation and JSONC comments. If no config file is fou
 
 ---
 
+## Lark MCP Tools
+
+opencode-lark pairs with [lark-openapi-mcp](https://github.com/larksuite/lark-openapi-mcp) to give the opencode agent direct access to Feishu's cloud document ecosystem — read/write docs, upload files, query Bitable tables, and search the wiki, all from within a single conversation.
+
+### Supported Capabilities
+
+| Category | Capabilities |
+|----------|-------------|
+| **Docs** (docx) | Create doc, write Markdown, read Markdown, get raw text content, search docs, import file as doc |
+| **Drive** | Upload local file to cloud drive, download file from cloud drive |
+| **Bitable** | Create Bitable app, manage tables, list fields, record CRUD |
+| **Messaging** (im) | List chats the bot belongs to, get chat members |
+| **Wiki** | Search wiki nodes, get node details |
+
+### Required User Scopes
+
+When calling tools with `user_access_token` (i.e. `useUAT: true`), enable the following scopes in **Permissions & Scopes** in the Feishu Open Platform console:
+
+| Scope | Purpose |
+|-------|---------|
+| `drive:drive` | Cloud drive read/write |
+| `docx:document` | Document read/write |
+| `bitable:app` | Bitable CRUD |
+| `im:chat:readonly` | Query chat/group info |
+| `wiki:wiki:readonly` | Wiki search and read |
+
+### Configuration
+
+Add a `lark-mcp` entry to the `mcp` section of your opencode config (`~/.config/opencode/config.json`):
+
+```jsonc
+{
+  "mcp": {
+    "lark-mcp": {
+      "type": "local",
+      "command": ["node", "/path/to/lark-openapi-mcp/dist/cli.js", "mcp", "-a", "${FEISHU_APP_ID}", "-s", "${FEISHU_APP_SECRET}", "--oauth", "--token-mode", "user_access_token", "-l", "zh"],
+      "enabled": true
+    }
+  }
+}
+```
+
+> **Note**: Pass `--token-mode user_access_token` to call tools on behalf of a user (required for drive uploads, wiki operations, etc.). Replace `/path/to/lark-openapi-mcp` with the actual install path after cloning/installing the package.
+
+---
+
 ## Project Structure
 
 ```
@@ -307,9 +353,8 @@ src/
 ├── handler/         # MessageHandler (inbound pipeline) + StreamingBridge (SSE → cards)
 ├── session/         # TUI session discovery, thread→session mapping, progress cards
 ├── streaming/       # EventProcessor (SSE parsing), SessionObserver, SubAgentTracker
-├── memory/          # SQLite-backed per-thread conversation history
 ├── cron/            # CronService (scheduled jobs) + HeartbeatService
-└── utils/           # Config loader, logger, SQLite init, EventListenerMap
+├── utils/           # Config loader, logger, SQLite init, EventListenerMap
 ```
 
 ---
