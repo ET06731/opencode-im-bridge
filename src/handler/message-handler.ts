@@ -577,7 +577,9 @@ export function createMessageHandler(
 
             sendResponse(responseText, event, thinkingMessageId)
               .then(async () => {
-                if (deps.outboundMedia) {
+                // Only upload files here if streaming bridge is NOT handling this session.
+                // When streaming bridge is active, it handles outbound media in its own SessionIdle.
+                if (deps.outboundMedia && !deps.streamingBridge) {
                   try {
                     await deps.outboundMedia.sendDetectedFiles(event.chat_id, responseText)
                   } catch (err) {

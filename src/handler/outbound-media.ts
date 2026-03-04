@@ -137,7 +137,7 @@ export function createOutboundMediaHandler(
 
   return {
     async sendDetectedFiles(chatId: string, text: string): Promise<void> {
-      const paths = extractFilePaths(text)
+      const paths = [...new Set(extractFilePaths(text))]
       if (paths.length === 0) {
         logger.debug(`No file paths detected in response text (${text.length} chars)`)
         return
