@@ -4,7 +4,7 @@ Architecture guide for contributors. Covers module layout, key abstractions, dat
 
 ## What This Project Does
 
-`opencode-lark` bridges Feishu group chats with opencode TUI sessions. Messages sent in Feishu flow into opencode as if typed in the terminal. Agent replies stream back to Feishu — `StreamingBridge` accumulates `TextDelta` events and queues them into CardKit streaming card updates (with serialized delivery to avoid rate limits), while tool and sub-agent status are shown via separate CardKit cards.
+`opencode-lark` bridges IM chats (Feishu, QQ, Telegram) with opencode TUI sessions. Messages sent in a chat flow into opencode as if typed in the terminal. Agent replies stream back to the chat — `StreamingBridge` accumulates `TextDelta` events and queues them into card updates (Feishu) or direct messages (QQ/Telegram), while tool and sub-agent status are shown via separate cards.
 
 ```
 Feishu client
@@ -139,10 +139,16 @@ opencode SSE stream
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `FEISHU_APP_ID` | yes | | Feishu App ID |
-| `FEISHU_APP_SECRET` | yes | | Feishu App Secret |
+| `FEISHU_APP_ID` | yes* | | Feishu App ID |
+| `FEISHU_APP_SECRET` | yes* | | Feishu App Secret |
+| `QQ_APP_ID` | yes* | | QQ Bot App ID |
+| `QQ_SECRET` | yes* | | QQ Bot Secret |
+| `TELEGRAM_BOT_TOKEN` | yes* | | Telegram Bot Token (from @BotFather) |
+| `TELEGRAM_ALLOWED_CHAT_IDS` | no | (all) | Comma-separated Chat IDs allowed to use the bot |
 | `OPENCODE_SERVER_URL` | no | `http://localhost:4096` | opencode server URL |
 | `FEISHU_WEBHOOK_PORT` | no | `3001` | Card action callback port |
 | `OPENCODE_CWD` | no | `process.cwd()` | Override session discovery directory |
+
+\* At least one channel (`FEISHU_APP_ID`/`QQ_APP_ID`/`TELEGRAM_BOT_TOKEN`) must be configured.
 
 See `.env.example` and `opencode-lark.example.jsonc` for full reference.

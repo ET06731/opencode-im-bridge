@@ -85,9 +85,9 @@ async function main(): Promise<void> {
   logger.info("Phase 1: Loading config...")
   const config = await loadConfig()
 
-  if ((!config.feishu?.appId || !config.feishu?.appSecret) && (!config.qq?.appId || !config.qq?.secret)) {
+  if ((!config.feishu?.appId || !config.feishu?.appSecret) && (!config.qq?.appId || !config.qq?.secret) && !config.telegram?.botToken) {
     logger.error(
-      "No valid channel credentials found (Feishu or QQ). Run `opencode-lark init` to configure, " +
+      "No valid channel credentials found (Feishu, QQ, or Telegram). Run `opencode-im-bridge init` to configure, " +
       "or set environment variables.",
     )
     process.exit(1)
@@ -187,7 +187,7 @@ async function main(): Promise<void> {
 
   const dedup = new MessageDedup({ db: db.sessions, ttlMs: 60_000 })
 
-  const progressTracker = createProgressTracker({ feishuClient })
+  const progressTracker = createProgressTracker({ feishuClient: feishuClient as any })
 
   const ownedSessions = new Set<string>()
   const eventListeners: EventListenerMap = new Map()
@@ -197,30 +197,36 @@ async function main(): Promise<void> {
 
   const subAgentTracker = new SubAgentTracker({ serverUrl })
 
-  const outboundMedia = createOutboundMediaHandler({
-    feishuClient,
-    logger,
-  })
+  const outboundMedia = config.feishu
+    ? createOutboundMediaHandler({ feishuClient, logger })
+    : undefined
 
-  const streamingBridge = createStreamingBridge({
-    cardkitClient,
-    feishuClient,
-    subAgentTracker,
-    logger,
-    seenInteractiveIds,
-    outboundMedia,
-    channelManager,
-  })
+  const streamingBridge = config.feishu
+    ? createStreamingBridge({
+      cardkitClient,
+      feishuClient,
+      subAgentTracker,
+      logger,
+      seenInteractiveIds,
+      outboundMedia,
+      channelManager,
+    })
+    : undefined
 
-  const observer = createSessionObserver({
-    feishuClient,
-    eventProcessor,
-    addListener: (sessionId, fn) => addListener(eventListeners, sessionId, fn),
-    removeListener: (sessionId, fn) => removeListener(eventListeners, sessionId, fn),
-    logger,
-    seenInteractiveIds,
-  })
+  const observer = config.feishu
+    ? createSessionObserver({
+      feishuClient,
+      eventProcessor,
+      addListener: (sessionId, fn) => addListener(eventListeners, sessionId, fn),
+      removeListener: (sessionId, fn) => removeListener(eventListeners, sessionId, fn),
+      logger,
+      seenInteractiveIds,
+    })
+    : undefined
 
+  const subAgentCardHandler = config.feishu
+    ? createSubAgentCardHandler({ subAgentTracker, feishuClient, logger })
+    : undefined
 
   const commandHandler = createCommandHandler({
     serverUrl,
@@ -249,47 +255,50 @@ async function main(): Promise<void> {
     channelManager,
   })
 
-  // Create card action handlers
-  const subAgentCardHandler = createSubAgentCardHandler({
-    subAgentTracker,
-    feishuClient,
-    logger,
-  })
+  // Create card action handlers (Feishu only)
+  const subAgentCardHandler2 = subAgentCardHandler  // alias already defined above
 
   const interactiveHandler = createInteractiveHandler({
     serverUrl,
     logger,
   })
 
-  const interactivePoller = createInteractivePoller({
-    serverUrl,
-    feishuClient,
-    logger,
-    getChatForSession: (sessionId) => observer.getChatForSession(sessionId),
-    seenInteractiveIds,
-  })
-  interactivePoller.start()
-
-  const handleCardAction = async (action: FeishuCardAction) => {
-    const actionType = action.action?.value?.action
-    if (actionType === "view_subagent") {
-      return subAgentCardHandler(action)
-    }
-    if (actionType === "question_answer" || actionType === "permission_reply") {
-      return interactiveHandler(action)
-    }
-    if (actionType === "command_execute") {
-      const cmd = action.action?.value?.command
-      if (cmd) {
-        const chatId = action.open_chat_id
-        const messageId = action.open_message_id
-        // For card callbacks, use chatId as feishuKey (best-effort for p2p)
-        await commandHandler(chatId, chatId, messageId, cmd)
-      }
-      return
-    }
-    logger.warn(`Unknown card action type: ${actionType}`)
+  let interactivePoller: ReturnType<typeof createInteractivePoller> | undefined
+  if (config.feishu && observer) {
+    interactivePoller = createInteractivePoller({
+      serverUrl,
+      feishuClient,
+      logger,
+      getChatForSession: (sessionId) => observer.getChatForSession(sessionId),
+      seenInteractiveIds,
+    })
+    interactivePoller.start()
+    logger.info("Interactive poller started (interval=3000ms)")
   }
+
+  const handleCardAction = config.feishu
+    ? async (action: FeishuCardAction) => {
+      const actionType = action.action?.value?.action
+      if (actionType === "view_subagent") {
+        return subAgentCardHandler2?.(action)
+      }
+      if (actionType === "question_answer" || actionType === "permission_reply") {
+        return interactiveHandler(action)
+      }
+      if (actionType === "command_execute") {
+        const cmd = action.action?.value?.command
+        if (cmd) {
+          const chatId = action.open_chat_id
+          const messageId = action.open_message_id
+          await commandHandler(chatId, chatId, messageId, cmd)
+        }
+        return
+      }
+      logger.warn(`Unknown card action type: ${actionType}`)
+    }
+    : async (_action: FeishuCardAction) => {
+      logger.warn("Received card action but Feishu is not configured")
+    }
 
   // ═══════════════════════════════════════════
   // Phase 5: Subscribe to Opencode Events (SSE)
@@ -367,6 +376,17 @@ async function main(): Promise<void> {
     channelManager.register(qqPlugin)
   }
 
+  if (config.telegram) {
+    // TelegramPlugin imported asynchronously to avoid top-level require if not used
+    const { TelegramPlugin } = await import("./channel/telegram/index.js")
+    const telegramPlugin = new TelegramPlugin({
+      appConfig: config,
+      logger,
+      onMessage: handleMessage,
+    })
+    channelManager.register(telegramPlugin)
+  }
+
   // ═══════════════════════════════════════════
   // Phase 7: Start Channels + Webhook Server
   // ═══════════════════════════════════════════
@@ -431,8 +451,8 @@ async function main(): Promise<void> {
       if (webhookServer) await webhookServer.close()
       cronService?.stop()
       heartbeatService?.stop()
-      interactivePoller.stop()
-      observer.stop()
+      interactivePoller?.stop()
+      observer?.stop()
       disposeDebouncer()
       dedup.close()
       db.close()

@@ -42,7 +42,8 @@ export async function needsSetup(): Promise<boolean> {
   // 3. Env vars already provide credentials → no setup needed
   const hasFeishu = !!(process.env.FEISHU_APP_ID && process.env.FEISHU_APP_SECRET)
   const hasQq = !!(process.env.QQ_APP_ID && process.env.QQ_SECRET)
-  if (hasFeishu || hasQq) {
+  const hasTelegram = !!process.env.TELEGRAM_BOT_TOKEN
+  if (hasFeishu || hasQq || hasTelegram) {
     return false
   }
 
@@ -175,11 +176,13 @@ export async function runSetupWizard(): Promise<void> {
 
     let setupFeishu = false
     let setupQq = false
-    while (!setupFeishu && !setupQq) {
-      const choice = (await rl.question("  Which channel do you want to configure? [feishu, qq, both]: ")).trim().toLowerCase()
+    let setupTelegram = false
+    while (!setupFeishu && !setupQq && !setupTelegram) {
+      const choice = (await rl.question("  Which channel do you want to configure? [feishu, qq, telegram, both]: ")).trim().toLowerCase()
       if (choice === "feishu" || choice === "both") setupFeishu = true
       if (choice === "qq" || choice === "both") setupQq = true
-      if (!setupFeishu && !setupQq) process.stdout.write(red("  Please select at least one valid channel.") + "\n")
+      if (choice === "telegram") setupTelegram = true
+      if (!setupFeishu && !setupQq && !setupTelegram) process.stdout.write(red("  Please select at least one valid channel.") + "\n")
     }
 
     let feishuAppId = "", feishuAppSecret = ""
@@ -215,6 +218,31 @@ export async function runSetupWizard(): Promise<void> {
       process.stdout.write("\n")
     } else if (!setupFeishu) {
       rl.close()
+    }
+
+    let telegramBotToken = ""
+    let telegramAllowedChatIds = ""
+    if (setupTelegram) {
+      const rlTg = setupFeishu || setupQq
+        ? readline.createInterface({ input: process.stdin, output: process.stdout })
+        : rl
+      process.stdout.write("\n" + dim("--- Telegram Bot Configuration ---") + "\n")
+      process.stdout.write(dim("  Get a bot token from @BotFather on Telegram.") + "\n")
+      if (setupFeishu || setupQq) rlTg.close()
+      else rl.close()
+      while (!telegramBotToken) {
+        telegramBotToken = (await readSecret("  Enter your Telegram Bot Token: ")).trim()
+      }
+      process.stdout.write("\n")
+      // Re-create rl for optional prompts
+      const rlTgOpt = readline.createInterface({ input: process.stdin, output: process.stdout })
+      try {
+        telegramAllowedChatIds = (
+          await rlTgOpt.question("  Allowed Chat IDs (comma-separated, leave blank to allow all): ")
+        ).trim()
+      } finally {
+        rlTgOpt.close()
+      }
     }
 
     // Re-create rl for the remaining prompts
@@ -270,6 +298,12 @@ export async function runSetupWizard(): Promise<void> {
         lines.push(`QQ_SECRET=${qqSecret}`)
         lines.push(`QQ_SANDBOX=false`)
       }
+      if (setupTelegram) {
+        lines.push(`TELEGRAM_BOT_TOKEN=${telegramBotToken}`)
+        if (telegramAllowedChatIds) {
+          lines.push(`TELEGRAM_ALLOWED_CHAT_IDS=${telegramAllowedChatIds}`)
+        }
+      }
 
       if (serverUrl !== DEFAULT_URL) {
         lines.push(`OPENCODE_SERVER_URL=${serverUrl}`)
@@ -286,6 +320,12 @@ export async function runSetupWizard(): Promise<void> {
       if (setupQq) {
         process.env.QQ_APP_ID = qqAppId
         process.env.QQ_SECRET = qqSecret
+      }
+      if (setupTelegram) {
+        process.env.TELEGRAM_BOT_TOKEN = telegramBotToken
+        if (telegramAllowedChatIds) {
+          process.env.TELEGRAM_ALLOWED_CHAT_IDS = telegramAllowedChatIds
+        }
       }
       if (serverUrl !== DEFAULT_URL) {
         process.env.OPENCODE_SERVER_URL = serverUrl
