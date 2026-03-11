@@ -1,6 +1,6 @@
 {
   "name": "opencode-im-bridge",
-  "version": "0.1.22",
+  "version": "0.1.23",
   "description": "Bridge Feishu/Lark group chats to opencode TUI sessions — real-time two-way messaging with streaming cards / 飞书群聊 ↔ opencode TUI 双向实时桥接",
   "license": "MIT",
   "keywords": [
@@ -13,10 +13,10 @@
     "bridge",
     "streaming"
   ],
-  "homepage": "https://github.com/guazi04/opencode-lark#readme",
+  "homepage": "https://github.com/ET06731/opencode-im-bridge#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/guazi04/opencode-lark.git"
+    "url": "git+https://github.com/ET06731/opencode-im-bridge.git"
   },
   "type": "module",
   "files": [
@@ -27,7 +27,7 @@
     "CHANGELOG.md"
   ],
   "bin": {
-    "opencode-lark": "bin/opencode-lark.js"
+    "opencode-im-bridge": "bin/opencode-im-bridge.js"
   },
   "scripts": {
     "start": "bun run src/index.ts",
