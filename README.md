@@ -29,7 +29,7 @@
 
 ```mermaid
 graph TD;
-    subgraph "IM Platform (Client & Platform)"
+    subgraph "IM Platform"
         Feishu[Feishu Group/P2P]
         QQ[QQ Official Bot Platform]
     end
@@ -70,6 +70,17 @@ graph TD;
 | `audio` / `video` / `sticker` | ❌ | Logged and skipped |
 
 Downloaded files are saved to `${OPENCODE_CWD}/.opencode-lark/attachments/` (falls back to the system temp directory if that path isn't writable).
+
+#### Slash Commands
+
+Type slash commands directly in the chat to manage opencode sessions:
+- `/new`: Create a new session (and bind it to the current chat)
+- `/sessions`: List recent sessions and current bound status (Interactive card in Feishu, text list in QQ)
+- `/connect {session_id}`: Connect/bind the current chat to a specific historical session
+- `/compact`: Compact context history (equivalent to `session.compact`)
+- `/share`: Share the current session (equivalent to `session.share`)
+- `/abort`: Abort the currently executing task
+- `/help` or `/`: Show the command help menu
 
 ---
 

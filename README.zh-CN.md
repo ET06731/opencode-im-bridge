@@ -71,6 +71,17 @@ graph TD;
 
 下载的文件保存在 `${OPENCODE_CWD}/.opencode-lark/attachments/`（若该路径不可写则回退至系统临时目录）。
 
+#### 斜杠命令 (Slash Commands)
+
+在聊天窗口中输入斜杠命令可直接进行会话管理：
+- `/new`：新建会话（并自动绑定到当前聊天）
+- `/sessions`：获取最近会话列表及当前绑定状态（飞书返回交互式卡片，QQ 返回文本列表）
+- `/connect {session_id}`：将当前聊天连接/绑定到指定的历史会话
+- `/compact`：执行上下文历史压缩（对应 `session.compact`）
+- `/share`：分享当前会话（对应 `session.share`）
+- `/abort`：中止当前正在执行的任务
+- `/help` 或 `/`：查看命令帮助菜单
+
 ---
 
 ## 安装
