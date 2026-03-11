@@ -2,7 +2,7 @@
 
 # opencode-im-bridge
 
-> 将飞书群聊与 opencode TUI session 打通，实现双向实时消息转发。
+> 将飞书\QQ群聊与 opencode TUI session 打通，实现双向实时消息转发。
 
 ![CI](https://github.com/guazi04/opencode-lark/actions/workflows/ci.yml/badge.svg)
 ![npm](https://img.shields.io/npm/v/opencode-lark.svg)
@@ -79,16 +79,16 @@ graph TD;
 
 ```bash
 # 全局安装
-npm install -g opencode-lark
+npm install -g opencode-im-bridge
 # 或
-bun add -g opencode-lark
+bun add -g opencode-im-bridge
 ```
 
 或从源码运行：
 
 ```bash
-git clone https://github.com/guazi04/opencode-lark.git
-cd opencode-lark
+git clone https://github.com/ET06731/opencode-im-bridge.git
+cd opencode-im-bridge
 bun install
 ```
 
@@ -102,15 +102,15 @@ bun install
 
 - **[Bun](https://bun.sh)**（必需运行时，本项目使用 `bun:sqlite`，仅 Bun 支持）
 - **[opencode](https://opencode.ai)** 已安装在本地
-- 已配置凭证的飞书开放平台应用（参见[飞书应用配置](#飞书应用配置)）
+- 已配置凭证的飞书开放平台应用 或 QQ 官方机器人（参见下文配置指南）
 
 ### 步骤
 
 **1. 安装**
 
 ```bash
-bun add -g opencode-lark
-# 或：npm install -g opencode-lark
+bun add -g opencode-im-bridge
+# 或：npm install -g opencode-im-bridge
 ```
 
 **2. 启动 opencode server**
@@ -119,12 +119,12 @@ bun add -g opencode-lark
 OPENCODE_SERVER_PORT=4096 opencode serve
 ```
 
-**3. 启动 opencode-lark**
+**3. 启动 opencode-im-bridge**
 
 在第二个终端：
 
 ```bash
-opencode-lark
+opencode-im-bridge
 ```
 
 首次运行无配置时，交互式向导将引导你完成：
@@ -135,9 +135,11 @@ opencode-lark
 
 配置完成后服务自动启动。
 
-> **提示**：如需重新配置，运行 `opencode-lark init`。
->
-> 如需手动配置，可在启动前创建 `.env` 文件并填写 `FEISHU_APP_ID` 和 `FEISHU_APP_SECRET`。
+> **提示**：如需重新配置，运行 `opencode-im-bridge init`。
+
+> 如需手动配置，可在启动前创建 `.env` 文件并填写相关凭据：
+> - 飞书：`FEISHU_APP_ID`, `FEISHU_APP_SECRET`
+> - QQ：`QQ_APP_ID`, `QQ_SECRET`
 
 **4. 发送测试消息**
 
@@ -149,7 +151,7 @@ opencode-lark
 ```bash
 opencode attach http://127.0.0.1:4096 --session {session_id}
 ```
-`session_id` 会在 opencode-lark 启动日志中显示（如 `Bound to TUI session: ... → ses_xxxxx`）。
+`session_id` 会在 opencode-im-bridge 启动日志中显示（如 `Bound to TUI session: ... → ses_xxxxx`）。
 
 ---
 
@@ -195,19 +197,19 @@ opencode attach http://127.0.0.1:4096 --session {session_id}
 
 > **注意**：测试阶段，应用管理员可直接使用，无需等待审核通过。
 
-### 6. 配置并启动 opencode-lark
+### 6. 配置并启动 opencode-im-bridge
 
-在配置事件订阅之前，需要先启动 opencode-lark，飞书才能检测到 WebSocket 连接。
+在配置事件订阅之前，需要先启动 opencode-im-bridge，飞书才能检测到 WebSocket 连接。
 
 1. 安装并配置：
    ```bash
    # 全局安装
-   bun add -g opencode-lark
-   # 或：npm install -g opencode-lark
+   bun add -g opencode-im-bridge
+   # 或：npm install -g opencode-im-bridge
 
    # 或从源码运行
-   # git clone https://github.com/guazi04/opencode-lark.git
-   # cd opencode-lark && bun install
+   # git clone https://github.com/ET06731/opencode-im-bridge.git
+   # cd opencode-im-bridge && bun install
    ```
 
 2. 在一个终端启动 opencode server：
@@ -215,9 +217,9 @@ opencode attach http://127.0.0.1:4096 --session {session_id}
    OPENCODE_SERVER_PORT=4096 opencode serve
    ```
 
-3. 在另一个终端启动 opencode-lark：
+3. 在另一个终端启动 opencode-im-bridge：
    ```bash
-   opencode-lark
+   opencode-im-bridge
    ```
    交互式向导会引导你输入凭证并验证服务器连接。如从源码运行：`bun run dev`
 
@@ -227,7 +229,7 @@ opencode attach http://127.0.0.1:4096 --session {session_id}
 > ```bash
 > opencode attach http://127.0.0.1:4096 --session {session_id}
 > ```
-> `session_id` 会在 opencode-lark 启动日志中显示（如 `Bound to TUI session: ... → ses_xxxxx`）。
+> `session_id` 会在 opencode-im-bridge 启动日志中显示（如 `Bound to TUI session: ... → ses_xxxxx`）。
 
 ### 7. 订阅事件
 
@@ -240,7 +242,7 @@ opencode attach http://127.0.0.1:4096 --session {session_id}
 |---|---|---|---|
 | 接收消息 | `im.message.receive_v1` | 接收用户消息 | ✅ |
 
-> ⚠️ **重要**：保存长连接模式前 opencode-lark 必须处于运行状态（步骤 6）。如果看到"应用未建立长连接"错误，请返回步骤 6 确认应用已启动。
+> ⚠️ **重要**：保存长连接模式前 opencode-im-bridge 必须处于运行状态（步骤 6）。如果看到"应用未建立长连接"错误，请返回步骤 6 确认应用已启动。
 
 ### 8. 订阅回调（交互式卡片）
 
@@ -266,7 +268,28 @@ opencode attach http://127.0.0.1:4096 --session {session_id}
 | 收到消息但无回复 | opencode server 未启动 | 确保先启动 opencode server：`OPENCODE_SERVER_PORT=4096 opencode serve` |
 | 卡片不实时更新 | 频率限制或防抖延迟 | 正常行为，防抖处理避免触发频率限制 |
 | 点击卡片按钮报错 `200340` | 回调订阅未配置 | 进入**回调订阅** → 选择长连接 → 添加 `card.action.trigger` |
-| 保存长连接模式时报"应用未建立长连接" | 应用未启动，飞书要求先建立连接 | 先完成步骤 6 启动 opencode-lark，再回飞书后台保存设置 |
+| 保存长连接模式时报"应用未建立长连接" | 应用未启动，飞书要求先建立连接 | 先完成步骤 6 启动 opencode-im-bridge，再回飞书后台保存设置 |
+
+---
+
+## QQ 机器人配置
+
+本节介绍如何创建 QQ 官方机器人并接入。
+
+### 1. 创建机器人
+1. 访问 [QQ 开放平台](https://q.qq.com/bot/#/home)。
+2. 创建一个“QQ 机器人”。
+3. 在**开发设置**中获取：
+   - **App ID** (即 `QQ_APP_ID`)
+   - **App Secret** (即 `QQ_SECRET`)
+
+### 2. 配置权限
+在开放平台后台，确保开启了以下基础权限：
+- 公域/私域消息回调。
+- 文本/图片消息接收机制。
+
+### 3. 配置 opencode-im-bridge
+运行 `opencode-lark init` 时选择 `qq` 渠道，或直接在 `.env` 中填写 `QQ_APP_ID` 和 `QQ_SECRET`。
 
 ---
 
@@ -288,11 +311,11 @@ opencode attach http://127.0.0.1:4096 --session {session_id}
 
 ### JSONC 配置文件
 
-`opencode-lark.jsonc`（已加入 .gitignore，从 `opencode-lark.example.jsonc` 复制）：
-（同时支持 `opencode-feishu.jsonc` 以兼容旧版）
+`opencode-im-bridge.jsonc`（已加入 .gitignore，从 `opencode-im-bridge.example.jsonc` 复制）：
+（同时支持 `opencode-lark.jsonc` 和 `opencode-feishu.jsonc` 以兼容旧版）
 
 ```jsonc
-// opencode-lark.jsonc
+// opencode-im-bridge.jsonc
 {
   // 可选：启用飞书
   "feishu": {
@@ -305,7 +328,6 @@ opencode attach http://127.0.0.1:4096 --session {session_id}
   // 可选：启用 QQ
   "qq": {
     "appId": "${QQ_APP_ID}",
-    "token": "${QQ_TOKEN}",
     "secret": "${QQ_SECRET}",
     "sandbox": false
   },
@@ -363,4 +385,4 @@ bun run build        # 编译到 dist/
 
 ## License
 
-[MIT](LICENSE) © 2026 opencode-lark contributors
+[MIT](LICENSE) © 2026 opencode-im-bridge contributors

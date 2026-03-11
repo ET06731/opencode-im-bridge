@@ -1,8 +1,8 @@
 [中文版](README.zh-CN.md)
 
-# opencode-lark
+# opencode-im-bridge
 
-> Bridge Feishu group chats to opencode TUI sessions with real-time two-way messaging.
+> Bridge Feishu\QQ group chats to opencode TUI sessions with real-time two-way messaging.
 
 ![CI](https://github.com/guazi04/opencode-lark/actions/workflows/ci.yml/badge.svg)
 ![npm](https://img.shields.io/npm/v/opencode-lark.svg)
@@ -13,7 +13,8 @@
 ## Features
 
 - **Real-time bridging** — Messages sent in Feishu arrive in your opencode TUI instantly, and agent replies stream back as live-updating cards.
-- **Interactive cards** — Agent questions and permission requests appear as clickable Feishu cards. Answer or approve directly from the chat — no need to switch to the TUI.
+- **Multi-channel support** — Now supports bridging QQ messages via the official Node SDK (C2C/Group text interaction).
+- **Interactive cards** — Agent questions and permission requests appear as clickable Feishu cards. Answer or approve directly from the chat — no need to switch to the TUI. (Currently supported primarily for Feishu)
 - **WebSocket connection** — Uses Feishu's long-lived WebSocket mode. No webhook polling, no public IP required.
 - **SSE streaming** — Consumes the opencode SSE event stream and debounces card updates to stay within rate limits.
 - **Conversation memory** — SQLite-backed per-thread history is prepended to each message, giving the agent context across turns.
@@ -26,16 +27,30 @@
 
 ## Architecture
 
-```
-Feishu client
-    ↕  WebSocket
-Feishu Open Platform
-    ↕  WebSocket
-opencode-lark  (this project)
-    ↕  HTTP API + SSE
-opencode server  (localhost:4096)
-    ↕  stdin/stdout
-opencode TUI
+```mermaid
+graph TD;
+    subgraph "IM Platform (Client & Platform)"
+        Feishu[Feishu Group/P2P]
+        QQ[QQ Official Bot Platform]
+    end
+
+    subgraph "opencode-im-bridge (Bridge Middleware)"
+        FeishuPlugin[Feishu Plugin]
+        QQPlugin[QQ Plugin]
+        
+        FeishuPlugin <--> ChannelManager
+        QQPlugin <--> ChannelManager
+
+        ChannelManager <--> SessionManager[(SQLite Memory / Session Map)]
+    end
+    
+    subgraph "opencode Server"
+        Agent[opencode Agent Server / TUI]
+    end
+
+    Feishu <--> |Webhook/WebSocket| FeishuPlugin
+    QQ <--> |WebSocket| QQPlugin
+    ChannelManager <--> |HTTP POST + SSE Streaming| Agent
 ```
 
 > `opencode serve` runs the HTTP server. Use `opencode attach` in a separate terminal to view the session in TUI.
@@ -64,16 +79,16 @@ Downloaded files are saved to `${OPENCODE_CWD}/.opencode-lark/attachments/` (fal
 
 ```bash
 # Global install
-npm install -g opencode-lark
+npm install -g opencode-im-bridge
 # or
-bun add -g opencode-lark
+bun add -g opencode-im-bridge
 ```
 
 Or clone and run from source:
 
 ```bash
-git clone https://github.com/guazi04/opencode-lark.git
-cd opencode-lark
+git clone https://github.com/ET06731/opencode-im-bridge.git
+cd opencode-im-bridge
 bun install
 ```
 
@@ -87,15 +102,15 @@ Get up and running in 5 minutes. You'll need a Feishu Open Platform app with bot
 
 - **[Bun](https://bun.sh)** (required runtime — this project uses `bun:sqlite` which is Bun-only)
 - **[opencode](https://opencode.ai)** installed locally
-- A **Feishu Open Platform app** with credentials (see [Feishu App Setup](#feishu-app-setup))
+- A **Feishu Open Platform app** or **QQ Official Bot** with credentials (see setup guides below)
 
 ### Steps
 
 **1. Install**
 
 ```bash
-bun add -g opencode-lark
-# or: npm install -g opencode-lark
+bun add -g opencode-im-bridge
+# or: npm install -g opencode-im-bridge
 ```
 
 **2. Start opencode server**
@@ -104,24 +119,27 @@ bun add -g opencode-lark
 OPENCODE_SERVER_PORT=4096 opencode serve
 ```
 
-**3. Start opencode-lark**
+**3. Start opencode-im-bridge**
 
 In a second terminal:
 
 ```bash
-opencode-lark
+opencode-im-bridge
 ```
 
 On first run with no configuration, an interactive setup wizard guides you through:
-- Entering your Feishu App ID and App Secret (masked input)
+- Selecting channels (Feishu, QQ, or both)
+- Entering your Feishu/QQ App ID and App Secret/Token (masked input)
 - Validating the opencode server connection
-- Saving credentials to a `.env` file
+- Saving credentials to corresponding `.env.{appId}` files
 
 The service starts automatically after setup completes.
 
-> **Tip**: To re-run the wizard later, use `opencode-lark init`.
+> **Tip**: To re-run the wizard later, use `opencode-im-bridge init`.
 >
-> To configure manually instead, create a `.env` file with `FEISHU_APP_ID` and `FEISHU_APP_SECRET` before starting.
+> To configure manually instead, create a `.env` file with relevant credentials before starting:
+> - Feishu: `FEISHU_APP_ID`, `FEISHU_APP_SECRET`
+> - QQ: `QQ_APP_ID`, `QQ_SECRET`
 
 **4. Send a test message**
 
@@ -177,19 +195,19 @@ Navigate to **App Release → Version Management & Release**, create a version a
 
 > **Note**: Internal apps in trial status can be used by app administrators immediately without review for testing.
 
-### 6. Configure & Start opencode-lark
+### 6. Configure & Start opencode-im-bridge
 
-Before configuring event subscriptions, start opencode-lark so Feishu can detect the WebSocket connection.
+Before configuring event subscriptions, start opencode-im-bridge so Feishu can detect the WebSocket connection.
 
 1. Install and configure:
    ```bash
    # Install globally
-   bun add -g opencode-lark
-   # or: npm install -g opencode-lark
+   bun add -g opencode-im-bridge
+   # or: npm install -g opencode-im-bridge
 
    # Or run from source
-   # git clone https://github.com/guazi04/opencode-lark.git
-   # cd opencode-lark && bun install
+   # git clone https://github.com/ET06731/opencode-im-bridge.git
+   # cd opencode-im-bridge && bun install
    ```
 
 2. Start opencode server in one terminal:
@@ -197,9 +215,9 @@ Before configuring event subscriptions, start opencode-lark so Feishu can detect
    OPENCODE_SERVER_PORT=4096 opencode serve
    ```
 
-3. Start opencode-lark in another terminal:
+3. Start opencode-im-bridge in another terminal:
    ```bash
-   opencode-lark
+   opencode-im-bridge
    ```
    The interactive setup wizard will guide you through entering credentials and validating the server connection. If running from source: `bun run dev`
 
@@ -209,7 +227,7 @@ Before configuring event subscriptions, start opencode-lark so Feishu can detect
 > ```bash
 > opencode attach http://127.0.0.1:4096 --session {session_id}
 > ```
-> The `session_id` is shown in opencode-lark's startup logs (e.g. `Bound to TUI session: ... → ses_xxxxx`).
+> The `session_id` is shown in opencode-im-bridge's startup logs (e.g. `Bound to TUI session: ... → ses_xxxxx`).
 
 ### 7. Subscribe to Events
 
@@ -222,7 +240,7 @@ Navigate to **Development Config → Event Subscriptions** and:
 |---|---|---|---|
 | 接收消息 | `im.message.receive_v1` | Receive all user messages | ✅ |
 
-> ⚠️ **Important**: opencode-lark must be running (Step 6) before you can save Long Connection mode. If you see "应用未建立长连接", go back to Step 6 and ensure the app is running.
+> ⚠️ **Important**: opencode-im-bridge must be running (Step 6) before you can save Long Connection mode. If you see "应用未建立长连接", go back to Step 6 and ensure the app is running.
 
 ### 8. Subscribe to Callbacks (Interactive Cards)
 
@@ -248,7 +266,28 @@ Navigate to **Development Config → Event Subscriptions → Callback Subscripti
 | Messages received but no reply | opencode server not running | Ensure opencode server is running: `OPENCODE_SERVER_PORT=4096 opencode serve` |
 | Card not updating in real-time | Rate limit or debounce delay | Normal behavior — updates are debounced to stay within Feishu rate limits |
 | Error `200340` when clicking card buttons | Callback subscription not configured | Go to **Callback Subscription** (回调订阅) → select Long Connection → add `card.action.trigger` |
-| "应用未建立长连接" when saving Long Connection mode | App not running — Feishu requires an active WebSocket connection before saving | Start opencode-lark first (Step 6), then save the setting in Feishu console |
+| "应用未建立长连接" when saving Long Connection mode | App not running — Feishu requires an active WebSocket connection before saving | Start opencode-im-bridge first (Step 6), then save the setting in Feishu console |
+
+---
+
+## QQ Bot Setup
+
+This section covers how to create and connect a QQ Official Bot.
+
+### 1. Create a Bot
+1. Visit [QQ Open Platform](https://q.qq.com/bot/#/home).
+2. Create a "Bot" type application.
+3. In **Development Settings**, obtain:
+   - **App ID** (mapped to `QQ_APP_ID`)
+   - **App Secret** (mapped to `QQ_SECRET`)
+
+### 2. Configure Permissions
+In the dashboard, ensure you've enabled:
+- Public/Private message callbacks.
+- Text/Image message receiving mechanisms.
+
+### 3. Configure opencode-im-bridge
+Run `opencode-lark init` and select the `qq` channel, or fill in `QQ_APP_ID` and `QQ_SECRET` in your `.env`.
 
 ---
 
@@ -268,11 +307,11 @@ Navigate to **Development Config → Event Subscriptions → Callback Subscripti
 
 ### JSONC Config
 
-`opencode-lark.jsonc` (gitignored; copy from `opencode-lark.example.jsonc`):
-(also supports `opencode-feishu.jsonc` for backward compatibility)
+`opencode-im-bridge.jsonc` (gitignored; copy from `opencode-im-bridge.example.jsonc`):
+(also supports `opencode-lark.jsonc` and `opencode-feishu.jsonc` for backward compatibility)
 
 ```jsonc
-// opencode-lark.jsonc
+// opencode-im-bridge.jsonc
 {
   "feishu": {
     "appId": "${FEISHU_APP_ID}",
@@ -289,7 +328,13 @@ Navigate to **Development Config → Event Subscriptions → Callback Subscripti
     "debounceMs": 500,
     "maxDebounceMs": 3000
   },
-  "messageDebounceMs": 10000  // Debounce timer for batching rapid multi-message inputs (text=immediate, media=buffer)
+  "messageDebounceMs": 10000,  // Debounce timer for batching rapid multi-message inputs (text=immediate, media=buffer)
+  // Optional: Enable QQ
+  "qq": {
+    "appId": "${QQ_APP_ID}",
+    "secret": "${QQ_SECRET}",
+    "sandbox": false
+  }
 }
 ```
 
@@ -381,4 +426,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on issues, pull requests, 
 
 ## License
 
-[MIT](LICENSE) © 2026 opencode-lark contributors
+[MIT](LICENSE) © 2026 opencode-im-bridge contributors
