@@ -168,7 +168,7 @@ export async function runSetupWizard(): Promise<void> {
   try {
     // ── Welcome ──
     process.stdout.write(
-      `\n${bold("🚀 Welcome to opencode-lark (Cross-platform Edition)!")}\n\nNo configuration found. Let's set things up.\n\n`,
+      `\n${bold("🚀 Welcome to opencode-im (Cross-platform Edition)!")}\n\nNo configuration found. Let's set things up.\n\n`,
     )
 
     // ── Step 1/3: Channel Selection & Credentials ──
@@ -334,7 +334,7 @@ export async function runSetupWizard(): Promise<void> {
       logger.info("Setup wizard completed, .env written to %s", envPath)
 
       // ── Starting ──
-      process.stdout.write(`\n${bold("Starting opencode-lark...")}\n\n`)
+      process.stdout.write(`\n${bold("Starting opencode-im...")}\n\n`)
     } finally {
       rl2.close()
     }

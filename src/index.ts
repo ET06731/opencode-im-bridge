@@ -45,7 +45,7 @@ import { HeartbeatService } from "./cron/heartbeat.js"
 import { loadEnvFile } from "./utils/env-loader.js"
 import { needsSetup, runSetupWizard, pickConfig } from "./cli/setup-wizard.js"
 
-const logger = createLogger("opencode-lark")
+const logger = createLogger("opencode-im")
 
 process.on("unhandledRejection", (reason, promise) => {
   logger.error(`[SILENT HOOK] Unhandled Rejection at: ${promise}, reason: ${reason}`);
@@ -81,7 +81,7 @@ async function main(): Promise<void> {
   // ═══════════════════════════════════════════
   // Phase 1: Load Config
   // ═══════════════════════════════════════════
-  logger.info("@@@@@ opencode-lark starting PRECISE VERSION @@@@@")
+  logger.info("@@@@@ opencode-im starting PRECISE VERSION @@@@@")
   logger.info("Phase 1: Loading config...")
   const config = await loadConfig()
 
