@@ -394,6 +394,15 @@ bun run build        # 编译到 dist/
 
 ---
 
+## 致谢
+
+本项目的早期开发与灵感离不开以下开源项目的贡献，在此表示诚挚的感谢：
+
+- [guazi04/opencode-lark](https://github.com/guazi04/opencode-lark)
+- [op7418/Claude-to-IM-skill](https://github.com/op7418/Claude-to-IM-skill)
+
+---
+
 ## License
 
 [MIT](LICENSE) © 2026 opencode-im-bridge contributors

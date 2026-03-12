@@ -435,6 +435,15 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on issues, pull requests, 
 
 ---
 
+## Acknowledgements
+
+The early development and inspiration for this project were made possible by the contributions of the following open-source projects. We express our sincere gratitude to:
+
+- [guazi04/opencode-lark](https://github.com/guazi04/opencode-lark)
+- [op7418/Claude-to-IM-skill](https://github.com/op7418/Claude-to-IM-skill)
+
+---
+
 ## License
 
 [MIT](LICENSE) © 2026 opencode-im-bridge contributors
