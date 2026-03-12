@@ -27,6 +27,12 @@ const TelegramConfigSchema = z.object({
   allowedChatIds: z.array(z.string()).optional().default([]),
 })
 
+const DiscordConfigSchema = z.object({
+  botToken: z.string().min(1),
+  /** 允许回复的 Channel ID 列表（数字字符串），留空则允许所有 */
+  allowedChannelIds: z.array(z.string()).optional().default([]),
+})
+
 const ProgressConfigSchema = z.object({
   debounceMs: z.number().int().positive().default(500),
   maxDebounceMs: z.number().int().positive().default(3000),
@@ -53,14 +59,15 @@ const AppConfigSchema = z.object({
   feishu: FeishuConfigSchema.optional(),
   qq: QqConfigSchema.optional(),
   telegram: TelegramConfigSchema.optional(),
+  discord: DiscordConfigSchema.optional(),
   defaultAgent: z.string().default("build"),
   dataDir: z.string().default("./data"),
   progress: ProgressConfigSchema.optional(),
   cron: CronConfigSchema.optional(),
   heartbeat: HeartbeatConfigSchema.optional(),
   messageDebounceMs: z.number().int().min(0).optional().default(10000),
-}).refine(data => data.feishu || data.qq || data.telegram, {
-  message: "At least one channel (feishu, qq, or telegram) must be configured."
+}).refine(data => data.feishu || data.qq || data.telegram || data.discord, {
+  message: "At least one channel (feishu, qq, telegram, or discord) must be configured."
 })
 
 export type AppConfig = z.infer<typeof AppConfigSchema>
@@ -68,6 +75,7 @@ export type CronConfig = z.infer<typeof CronConfigSchema>
 export type CronJobConfig = z.infer<typeof CronJobSchema>
 export type HeartbeatConfig = z.infer<typeof HeartbeatConfigSchema>
 export type TelegramConfig = z.infer<typeof TelegramConfigSchema>
+export type DiscordConfig = z.infer<typeof DiscordConfigSchema>
 
 /** Replace ${ENV_VAR} placeholders with actual environment variable values */
 function interpolateEnvVars(text: string): string {
@@ -104,7 +112,7 @@ export async function loadConfig(configPath?: string): Promise<AppConfig> {
   // Fall back to pure env vars if no config file
   if (!rawText) {
     rawText = JSON.stringify({
-      feishu: process.env["FEISHU_APP_ID"] ? {
+      feishu: process.env["FEISHU_APP_ID"] && process.env["FEISHU_APP_ID"] !== "cli_xxxxxxxxxxxxxxxx" && process.env["FEISHU_APP_ID"] !== "your_app_id_here" ? {
         appId: process.env["FEISHU_APP_ID"],
         appSecret: process.env["FEISHU_APP_SECRET"] ?? "",
         verificationToken: process.env["FEISHU_VERIFICATION_TOKEN"] ?? "",
@@ -119,7 +127,13 @@ export async function loadConfig(configPath?: string): Promise<AppConfig> {
       telegram: process.env["TELEGRAM_BOT_TOKEN"] ? {
         botToken: process.env["TELEGRAM_BOT_TOKEN"],
         allowedChatIds: process.env["TELEGRAM_ALLOWED_CHAT_IDS"]
-          ? process.env["TELEGRAM_ALLOWED_CHAT_IDS"].split(",").map(s => s.trim()).filter(Boolean)
+          ? process.env["TELEGRAM_ALLOWED_CHAT_IDS"].split(",").map((s: string) => s.trim()).filter(Boolean)
+          : [],
+      } : undefined,
+      discord: process.env["DISCORD_BOT_TOKEN"] ? {
+        botToken: process.env["DISCORD_BOT_TOKEN"],
+        allowedChannelIds: process.env["DISCORD_ALLOWED_CHANNEL_IDS"]
+          ? process.env["DISCORD_ALLOWED_CHANNEL_IDS"].split(",").map((s: string) => s.trim()).filter(Boolean)
           : [],
       } : undefined,
       defaultAgent: "build",
