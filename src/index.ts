@@ -86,9 +86,9 @@ async function main(): Promise<void> {
   logger.info("Phase 1: Loading config...")
   const config = await loadConfig()
 
-  if ((!config.feishu?.appId || !config.feishu?.appSecret) && (!config.qq?.appId || !config.qq?.secret) && !config.telegram?.botToken && !config.discord?.botToken) {
+  if ((!config.feishu?.appId || !config.feishu?.appSecret) && (!config.qq?.appId || !config.qq?.secret) && !config.telegram?.botToken && !config.discord?.botToken && !config.wechat?.enabled) {
     logger.error(
-      "No valid channel credentials found (Feishu, QQ, Telegram, or Discord). Run `opencode-im-bridge init` to configure, " +
+      "No valid channel credentials found (Feishu, QQ, Telegram, Discord, or WeChat). Run `opencode-im-bridge init` to configure, " +
       "or set environment variables.",
     )
     process.exit(1)
@@ -422,6 +422,16 @@ async function main(): Promise<void> {
       onMessage: handleMessage,
     })
     channelManager.register(discordPlugin)
+  }
+
+  if (config.wechat) {
+    const { WechatPlugin } = await import("./channel/wechat/index.js")
+    const wechatPlugin = new WechatPlugin({
+      appConfig: config,
+      logger,
+      onMessage: handleMessage,
+    })
+    channelManager.register(wechatPlugin)
   }
 
   // ═══════════════════════════════════════════

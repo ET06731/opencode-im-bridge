@@ -33,6 +33,13 @@ const DiscordConfigSchema = z.object({
   allowedChannelIds: z.array(z.string()).optional().default([]),
 })
 
+const WechatConfigSchema = z.object({
+  enabled: z.boolean().default(true),
+  sessionFile: z.string().optional(),
+  baseUrl: z.string().optional().default("https://ilinkai.weixin.qq.com"),
+  token: z.string().optional(),
+})
+
 const ProgressConfigSchema = z.object({
   debounceMs: z.number().int().positive().default(500),
   maxDebounceMs: z.number().int().positive().default(3000),
@@ -71,14 +78,15 @@ const AppConfigSchema = z.object({
   qq: QqConfigSchema.optional(),
   telegram: TelegramConfigSchema.optional(),
   discord: DiscordConfigSchema.optional(),
+  wechat: WechatConfigSchema.optional(),
   defaultAgent: z.string().default("build"),
   dataDir: z.string().default("./data"),
   progress: ProgressConfigSchema.optional(),
   cron: CronConfigSchema.optional(),
   heartbeat: HeartbeatConfigSchema.optional(),
   messageDebounceMs: z.number().int().min(0).optional().default(10000),
-}).refine(data => data.feishu || data.qq || data.telegram || data.discord, {
-  message: "At least one channel (feishu, qq, telegram, or discord) must be configured."
+}).refine(data => data.feishu || data.qq || data.telegram || data.discord || data.wechat, {
+  message: "At least one channel (feishu, qq, telegram, discord, or wechat) must be configured."
 })
 
 export type AppConfig = z.infer<typeof AppConfigSchema>
@@ -87,6 +95,7 @@ export type CronJobConfig = z.infer<typeof CronJobSchema>
 export type HeartbeatConfig = z.infer<typeof HeartbeatConfigSchema>
 export type TelegramConfig = z.infer<typeof TelegramConfigSchema>
 export type DiscordConfig = z.infer<typeof DiscordConfigSchema>
+export type WechatConfig = z.infer<typeof WechatConfigSchema>
 
 /** Replace ${ENV_VAR} placeholders with actual environment variable values */
 function interpolateEnvVars(text: string): string {
@@ -159,6 +168,11 @@ export async function loadConfig(configPath?: string): Promise<AppConfig> {
         allowedChannelIds: process.env["DISCORD_ALLOWED_CHANNEL_IDS"]
           ? process.env["DISCORD_ALLOWED_CHANNEL_IDS"].split(",").map((s: string) => s.trim()).filter(Boolean)
           : [],
+      } : undefined,
+      wechat: process.env["WECHAT_ENABLED"] === "true" ? {
+        enabled: true,
+        sessionFile: process.env["WECHAT_SESSION_FILE"],
+        baseUrl: process.env["WECHAT_BASE_URL"],
       } : undefined,
       defaultAgent: process.env["OPENCODE_DEFAULT_AGENT"] ?? "build",
       dataDir: process.env["OPENCODE_DATA_DIR"] ?? "./data",
