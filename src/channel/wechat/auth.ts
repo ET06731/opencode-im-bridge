@@ -95,7 +95,12 @@ export async function login(
     fs.writeFileSync(qrFilePath, imageBuffer)
   }
 
-  await renderQrToTerminal(qrResp.qrcode)
+  // 使用 qrcode_img_content（base64图片）渲染到终端，而不是 qrcode 标识符
+  if (qrResp.qrcode_img_content) {
+    await renderQrToTerminal(qrResp.qrcode_img_content)
+  } else {
+    await renderQrToTerminal(qrResp.qrcode)
+  }
   onStatus("请使用微信扫描上方二维码（5分钟内有效）")
   onStatus(`二维码图片已保存到: ${qrFilePath}`)
 
@@ -146,7 +151,12 @@ export async function login(
           const imageBuffer = Buffer.from(newQr.qrcode_img_content, "base64")
           fs.writeFileSync(qrFilePath, imageBuffer)
         }
-        await renderQrToTerminal(newQr.qrcode)
+        // 使用 qrcode_img_content（base64图片）渲染到终端，而不是 qrcode 标识符
+        if (newQr.qrcode_img_content) {
+          await renderQrToTerminal(newQr.qrcode_img_content)
+        } else {
+          await renderQrToTerminal(newQr.qrcode)
+        }
         if (callbacks.onQrcode && newQr.qrcode_img_content) {
           callbacks.onQrcode(`data:image/png;base64,${newQr.qrcode_img_content}`)
         }
