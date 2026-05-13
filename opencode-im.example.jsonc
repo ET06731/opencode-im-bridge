@@ -40,6 +40,15 @@
   "progress": {
     "debounceMs": 500,
     "maxDebounceMs": 3000
+  },
+
+  // 可选：服务端唤醒配置
+  "launcher": {
+    "enabled": true,
+    "autoStartServer": true,
+    "serverCommand": "opencode serve",
+    "serverStartTimeoutMs": 30000,
+    "probeTimeoutMs": 4000
   }
 
   // Optional: cron jobs configuration

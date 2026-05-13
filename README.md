@@ -64,6 +64,7 @@
 - `/model` 或 `/models`：切换模型（飞书返回交互式卡片，支持下拉菜单翻页）
 - `/agent`：切换 Agent（飞书返回交互式卡片）
 - `/status`：查看当前状态（服务器、模型、会话、Context 用量等）
+- `/wake`：当 `opencode` 服务端没起来时，尝试从 IM 侧唤醒服务端
 - `/help` 或 `/`：查看命令帮助菜单
 - `/cron add`：创建定时任务（飞书返回交互式预览卡片，支持确认/拒绝按钮）
 - `/cron remove`：删除定时任务（飞书/Telegram/Discord 返回交互式卡片）
@@ -237,11 +238,35 @@ opencode attach http://127.0.0.1:4096 --session {session_id}
   "progress": {
     "debounceMs": 500,
     "maxDebounceMs": 3000
+  },
+  // 可选：自动唤醒 opencode 服务端
+  "launcher": {
+    "enabled": true,
+    "autoStartServer": true,
+    "serverCommand": "opencode serve",
+    "serverStartTimeoutMs": 30000,
+    "probeTimeoutMs": 4000
   }
 }
 ```
 
 支持 `${ENV_VAR}` 环境变量插值和 JSONC 注释。无配置文件时自动从 `.env` 构建默认配置。
+
+### 服务端唤醒
+
+如果经常遇到 `opencode` 服务端端口不可达，可以启用 `launcher`：
+
+- `launcher.enabled`: 开启唤醒能力
+- `launcher.autoStartServer`: 遇到连接失败时自动尝试拉起服务端
+- `launcher.serverCommand`: 启动命令，例如 Windows PowerShell 常见写法可直接填 `opencode serve`
+- `launcher.serverStartTimeoutMs`: 等待服务端就绪的超时时间
+
+启用后有两条恢复路径：
+
+- 正常对话时如果 `bridge` 还活着、只有 `opencode` 服务端掉了，收到 IM 消息会自动尝试拉起并重试。
+- 你也可以在移动端发送 `/wake`，手动触发一次唤醒。
+
+当前版本里的 `/wake` 主要负责拉起 `opencode` 服务端。`opencode-im-bridge` 自己如果完全退出，仍建议配合系统守护方式常驻，例如 Windows 任务计划程序、pm2 或 NSSM。
 
 ---
 
