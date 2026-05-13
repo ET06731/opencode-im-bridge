@@ -52,6 +52,14 @@ interface TelegramMessage {
   from?: TelegramUser
   text?: string
   date: number
+  reply_to_message?: TelegramReplyToMessage
+}
+
+interface TelegramReplyToMessage {
+  message_id: number
+  from?: TelegramUser
+  text?: string
+  date: number
 }
 
 interface TelegramCallbackQuery {
@@ -495,7 +503,7 @@ export class TelegramPlugin extends BaseChannelPlugin {
   private createSyntheticMessageEvent(update: TelegramUpdate): any {
     const message = update.message!
     const chatId = String(message.chat.id)
-    return {
+    const synthetic: any = {
       event_id: String(update.update_id),
       event_type: "message",
       chat_id: chatId,
@@ -512,6 +520,13 @@ export class TelegramPlugin extends BaseChannelPlugin {
       },
       _channelId: "telegram",
     }
+
+    if (message.reply_to_message) {
+      synthetic.parent_id = String(message.reply_to_message.message_id)
+      synthetic.quoted_text = message.reply_to_message.text ?? ""
+    }
+
+    return synthetic
   }
 
   private isAllowedChat(chatId: string): boolean {

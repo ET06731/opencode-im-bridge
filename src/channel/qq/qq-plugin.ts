@@ -153,7 +153,7 @@ export class QQPlugin extends BaseChannelPlugin {
                             content = JSON.stringify({ text: (event as any).raw_message || (event as any).content || "" })
                         }
 
-                        const syntheticEvent = {
+                        const syntheticEvent: any = {
                             event_id: event.id || event.message_id,
                             event_type: "message",
                             chat_id: event.user_id,
@@ -170,6 +170,11 @@ export class QQPlugin extends BaseChannelPlugin {
                             },
                             _channelId: "qq",
                             _rawMessage: messageArray,
+                        }
+
+                        const qqEvent = event as any
+                        if (qqEvent.message_reference?.message_id) {
+                            syntheticEvent.parent_id = qqEvent.message_reference.message_id
                         }
                         await deps.onMessage(syntheticEvent as any)
                     }

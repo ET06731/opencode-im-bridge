@@ -87,7 +87,7 @@ export class DiscordPlugin extends BaseChannelPlugin {
                     this.logger.error(`[Discord] Client error:`, error)
                 })
 
-                this.client.on("messageCreate", (msg: DiscordMessage) => {
+                this.client.on("messageCreate", async (msg: DiscordMessage) => {
                     if (msg.author.bot) return
 
                     if (this.discordConfig.allowedChannelIds && this.discordConfig.allowedChannelIds.length > 0) {
@@ -96,7 +96,7 @@ export class DiscordPlugin extends BaseChannelPlugin {
                         }
                     }
 
-                    const syntheticEvent = {
+                    const syntheticEvent: any = {
                         event_id: msg.id,
                         event_type: "message",
                         chat_id: msg.channelId,
@@ -113,6 +113,19 @@ export class DiscordPlugin extends BaseChannelPlugin {
                         },
                         _channelId: "discord",
                         msg: msg,
+                    }
+
+                    if (msg.reference?.messageId) {
+                        try {
+                            const channel = msg.channel
+                            if (channel.isTextBased()) {
+                                const replied = await channel.messages.fetch(msg.reference.messageId)
+                                syntheticEvent.parent_id = msg.reference.messageId
+                                syntheticEvent.quoted_text = replied.content.trim()
+                            }
+                        } catch (err) {
+                            this.logger.warn(`[Discord] Failed to fetch replied message ${msg.reference.messageId}: ${err}`)
+                        }
                     }
 
                     if (deps.onMessage) {
