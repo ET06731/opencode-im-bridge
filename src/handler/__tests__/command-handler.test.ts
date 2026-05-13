@@ -49,12 +49,13 @@ describe("createCommandHandler", () => {
     }))
   })
 
-  function createHandler(sm?: SessionManager) {
+  function createHandler(sm?: SessionManager, overrides: Record<string, unknown> = {}) {
     return createCommandHandler({
       serverUrl: "http://test:4096",
       sessionManager: sm ?? mockSessionManager,
       feishuClient: mockFeishuClient,
       logger: mockLogger,
+      ...overrides,
     })
   }
 
@@ -450,6 +451,204 @@ describe("createCommandHandler", () => {
     })
   })
 
+  describe("/fork", () => {
+    it("forks from the current session tip when no source message is provided", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ id: "ses-fork-1" }),
+      })
+      mockFeishuClient.replyMessage = vi.fn().mockResolvedValue({ code: 0, msg: "ok" })
+
+      const handler = createHandler()
+      const result = await handler("chat-1", "chat-1", "msg-1", "/fork")
+
+      expect(result).toBe(true)
+      expect(mockFetch).toHaveBeenCalledWith(
+        "http://test:4096/session/ses-123/fork",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        },
+      )
+      expect(mockSessionManager.setMapping).toHaveBeenCalledWith("chat-1", "ses-fork-1", "build")
+      expect(mockFeishuClient.replyMessage).toHaveBeenCalledWith("msg-1", {
+        msg_type: "text",
+        content: JSON.stringify({ text: "已创建分叉会话: ses-fork-1" }),
+      })
+    })
+
+    it("forks from the replied assistant message when parent context is available", async () => {
+      mockFeishuClient.getMessage = vi.fn().mockResolvedValue({
+        code: 0,
+        data: {
+          items: [{
+            msg_type: "text",
+            body: { content: JSON.stringify({ text: "Second reply" }) },
+          }],
+        },
+      })
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve([
+            { info: { id: "oc-msg-1" }, parts: [{ type: "text", text: "First reply" }] },
+            { info: { id: "oc-msg-2" }, parts: [{ type: "text", text: "Second reply" }] },
+          ]),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ id: "ses-fork-2" }),
+        })
+      mockFeishuClient.replyMessage = vi.fn().mockResolvedValue({ code: 0, msg: "ok" })
+
+      const handler = createHandler()
+      const result = await handler("chat-1", "chat-1", "msg-1", "/fork", "feishu", {
+        replyToMessageId: "parent-msg-1",
+      })
+
+      expect(result).toBe(true)
+      expect(mockFeishuClient.getMessage).toHaveBeenCalledWith("parent-msg-1")
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        1,
+        "http://test:4096/session/ses-123/message?limit=200",
+      )
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        2,
+        "http://test:4096/session/ses-123/fork",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messageID: "oc-msg-2" }),
+        },
+      )
+      expect(mockSessionManager.setMapping).toHaveBeenCalledWith("chat-1", "ses-fork-2", "build")
+    })
+
+    it("replies with guidance when the replied message cannot be resolved", async () => {
+      mockFeishuClient.getMessage = vi.fn().mockResolvedValue({
+        code: 0,
+        data: {
+          items: [{
+            msg_type: "text",
+            body: { content: JSON.stringify({ text: "Missing reply" }) },
+          }],
+        },
+      })
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve([
+          { info: { id: "oc-msg-1" }, parts: [{ type: "text", text: "Another reply" }] },
+        ]),
+      })
+      mockFeishuClient.replyMessage = vi.fn().mockResolvedValue({ code: 0, msg: "ok" })
+
+      const handler = createHandler()
+      const result = await handler("chat-1", "chat-1", "msg-1", "/fork", "feishu", {
+        replyToMessageId: "parent-msg-2",
+      })
+
+      expect(result).toBe(true)
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      expect(mockFeishuClient.replyMessage).toHaveBeenCalledWith("msg-1", {
+        msg_type: "text",
+        content: JSON.stringify({
+          text: "没有找到可用于分叉的历史消息。请回复一条助手消息后再执行 /fork，或直接使用 /fork <message_id>。",
+        }),
+      })
+    })
+
+    it("forks from the replied message using quotedText for non-Feishu channels (Telegram)", async () => {
+      const sendTextMock = vi.fn().mockResolvedValue(undefined)
+      const mockChannelManager = {
+        getChannel: vi.fn().mockReturnValue({
+          outbound: { sendText: sendTextMock, sendCard: vi.fn() },
+        }),
+      } as any
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve([
+            { info: { id: "oc-msg-1" }, parts: [{ type: "text", text: "First reply" }] },
+            { info: { id: "oc-msg-2" }, parts: [{ type: "text", text: "Second reply" }] },
+          ]),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ id: "ses-fork-3" }),
+        })
+
+      const handler = createHandler(undefined, { channelManager: mockChannelManager })
+      const result = await handler("chat-1", "chat-1", "msg-1", "/fork", "telegram", {
+        replyToMessageId: "tg-msg-42",
+        quotedText: "Second reply",
+      })
+
+      expect(result).toBe(true)
+      expect(mockFeishuClient.getMessage).not.toHaveBeenCalled()
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        1,
+        "http://test:4096/session/ses-123/message?limit=200",
+      )
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        2,
+        "http://test:4096/session/ses-123/fork",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messageID: "oc-msg-2" }),
+        },
+      )
+      expect(mockSessionManager.setMapping).toHaveBeenCalledWith("chat-1", "ses-fork-3", "build")
+      expect(sendTextMock).toHaveBeenCalled()
+    })
+
+    it("forks from the replied message using quotedText for Discord channel", async () => {
+      const sendTextMock = vi.fn().mockResolvedValue(undefined)
+      const mockChannelManager = {
+        getChannel: vi.fn().mockReturnValue({
+          outbound: { sendText: sendTextMock, sendCard: vi.fn() },
+        }),
+      } as any
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve([
+            { info: { id: "oc-msg-1" }, parts: [{ type: "text", text: "Discord original" }] },
+          ]),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ id: "ses-fork-4" }),
+        })
+
+      const handler = createHandler(undefined, { channelManager: mockChannelManager })
+      const result = await handler("chat-1", "chat-1", "msg-1", "/fork", "discord", {
+        replyToMessageId: "dc-msg-99",
+        quotedText: "Discord original",
+      })
+
+      expect(result).toBe(true)
+      expect(mockFeishuClient.getMessage).not.toHaveBeenCalled()
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        1,
+        "http://test:4096/session/ses-123/message?limit=200",
+      )
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        2,
+        "http://test:4096/session/ses-123/fork",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messageID: "oc-msg-1" }),
+        },
+      )
+      expect(mockSessionManager.setMapping).toHaveBeenCalledWith("chat-1", "ses-fork-4", "build")
+    })
+  })
+
   describe("/help and /", () => {
     it("/help sends interactive card", async () => {
       mockFeishuClient.replyMessage = vi.fn().mockResolvedValue({ code: 0, msg: "ok" })
@@ -490,6 +689,45 @@ describe("createCommandHandler", () => {
       expect(content).toHaveProperty("header")
       expect(content).toHaveProperty("body")
       expect(content.body).toHaveProperty("elements")
+    })
+  })
+
+  describe("/wake", () => {
+    it("replies with guidance when launcher is not configured", async () => {
+      mockFeishuClient.replyMessage = vi.fn().mockResolvedValue({ code: 0, msg: "ok" })
+
+      const handler = createHandler()
+      const result = await handler("chat-1", "chat-1", "msg-1", "/wake")
+
+      expect(result).toBe(true)
+      expect(mockFeishuClient.replyMessage).toHaveBeenLastCalledWith("msg-1", {
+        msg_type: "text",
+        content: JSON.stringify({
+          text: "未配置唤醒器。请先设置 launcher.enabled、launcher.autoStartServer 和 launcher.serverCommand。",
+        }),
+      })
+    })
+
+    it("wakes server successfully when launcher is configured", async () => {
+      mockFeishuClient.replyMessage = vi.fn().mockResolvedValue({ code: 0, msg: "ok" })
+      const serviceLauncher = {
+        ensureServerReady: vi.fn().mockResolvedValue({ healthy: true, started: true }),
+        probeServer: vi.fn(),
+      }
+
+      const handler = createHandler(undefined, { serviceLauncher })
+      const result = await handler("chat-1", "chat-1", "msg-1", "/wake")
+
+      expect(result).toBe(true)
+      expect(serviceLauncher.ensureServerReady).toHaveBeenCalledWith("slash wake")
+      expect(mockFeishuClient.replyMessage).toHaveBeenNthCalledWith(1, "msg-1", {
+        msg_type: "text",
+        content: JSON.stringify({ text: "正在唤醒 opencode 服务端，请稍候..." }),
+      })
+      expect(mockFeishuClient.replyMessage).toHaveBeenNthCalledWith(2, "msg-1", {
+        msg_type: "text",
+        content: JSON.stringify({ text: "opencode 服务端已就绪，可以继续发送消息。" }),
+      })
     })
   })
 

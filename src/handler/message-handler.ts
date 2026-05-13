@@ -26,6 +26,7 @@ import { join, resolve } from "node:path"
 import { tmpdir } from "node:os"
 import { randomBytes } from "node:crypto"
 import { downloadQQMedia, parseQQMediaMessage, type QQMediaMessage } from "../channel/qq/qq-api-client.js"
+import type { ServiceLauncher } from "../reliability/service-launcher.js"
 
 // ── Dependency injection interface ──
 
@@ -46,6 +47,7 @@ export interface HandlerDeps {
   outboundMedia?: OutboundMediaHandler
   debounceMs?: number
   channelManager?: any // ChannelManager type
+  serviceLauncher?: ServiceLauncher
 }
 
 // ── Constants ──
@@ -344,6 +346,23 @@ export function createMessageHandler(
     ? new MessageDebouncer(deps.debounceMs, handleBatchFlush, logger)
     : null
 
+  async function fetchWithWakeRetry(
+    url: string,
+    init: RequestInit,
+    reason: string,
+  ): Promise<Response> {
+    try {
+      return await fetch(url, init)
+    } catch (err) {
+      const wakeResult = await deps.serviceLauncher?.ensureServerReady(reason)
+      if (!wakeResult?.healthy) {
+        throw err
+      }
+      logger.info(`[launcher] retrying request after wake (${reason})`)
+      return await fetch(url, init)
+    }
+  }
+
   async function handleMessage(
     event: FeishuMessageEvent,
   ): Promise<void> {
@@ -464,7 +483,14 @@ export function createMessageHandler(
 
     // ── 4b. Check for slash command ──
     if (userText.startsWith("/") && deps.commandHandler) {
-      const handled = await deps.commandHandler(feishuKey, event.chat_id, event.message_id, userText.trim(), channelId)
+      const handled = await deps.commandHandler(
+        feishuKey,
+        event.chat_id,
+        event.message_id,
+        userText.trim(),
+        channelId,
+        { replyToMessageId: event.parent_id, quotedText: (event as any).quoted_text },
+      )
       if (handled) return
     }
 
@@ -649,11 +675,11 @@ export function createMessageHandler(
 
     async function postToOpencode(): Promise<string> {
       const url = `${serverUrl}/session/${currentSessionId}/message`
-      const resp = await fetch(url, {
+      const resp = await fetchWithWakeRetry(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: postBody,
-      })
+      }, "incoming message")
       if (resp.status === 404) {
         throw new SessionGoneError(currentSessionId, 404)
       }
@@ -948,11 +974,11 @@ export function createMessageHandler(
 
     async function postToOpencode(): Promise<string> {
       const url = `${serverUrl}/session/${currentSessionId}/message`
-      const resp = await fetch(url, {
+      const resp = await fetchWithWakeRetry(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: postBody,
-      })
+      }, "debounced message")
       if (resp.status === 404) {
         throw new SessionGoneError(currentSessionId, 404)
       }

@@ -295,6 +295,43 @@ describe("createMessageHandler", () => {
     )
   })
 
+  it("retries message POST after waking the server", async () => {
+    let callCount = 0
+    globalThis.fetch = vi.fn().mockImplementation(async () => {
+      callCount++
+      if (callCount === 1) {
+        throw new Error("connect ECONNREFUSED 127.0.0.1:4096")
+      }
+      return {
+        ok: true,
+        text: () => Promise.resolve(""),
+      }
+    }) as any
+
+    const serviceLauncher = {
+      ensureServerReady: vi.fn().mockResolvedValue({ healthy: true, started: true }),
+      probeServer: vi.fn(),
+    }
+    const deps = makeDeps({ serviceLauncher })
+    const { handleMessage: handler } = createMessageHandler(deps)
+
+    const handlerPromise = handler(makeEvent())
+
+    await waitFor(() => {
+      expect(deps.eventListeners.size).toBe(1)
+    })
+
+    ;[...deps.eventListeners.get("ses-1")!].forEach(fn => fn({
+      type: "session.status",
+      properties: { sessionID: "ses-1", status: { type: "idle" } },
+    }))
+
+    await handlerPromise
+
+    expect(serviceLauncher.ensureServerReady).toHaveBeenCalledWith("incoming message")
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2)
+  })
+
   it("event-driven flow: collects TextDelta and responds on SessionIdle", async () => {
     mockFetchOk("")
     const deps = makeDeps()

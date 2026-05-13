@@ -37,6 +37,7 @@ import { TaskCreationManager } from "../scheduled-task/creation-manager.js"
 import { scheduledTaskRuntime } from "../scheduled-task/runtime.js"
 import type { TaskDisplayItem, ScheduledTask } from "../scheduled-task/types.js"
 import { CronJob } from "cron"
+import type { ServiceLauncher } from "../reliability/service-launcher.js"
 
 export interface CommandHandlerDeps {
   serverUrl: string
@@ -44,6 +45,12 @@ export interface CommandHandlerDeps {
   feishuClient: FeishuApiClient
   logger: Logger
   channelManager?: ChannelManager
+  serviceLauncher?: ServiceLauncher
+}
+
+export interface CommandContext {
+  replyToMessageId?: string
+  quotedText?: string
 }
 
 export type CommandHandler = (
@@ -52,6 +59,7 @@ export type CommandHandler = (
   messageId: string,
   commandText: string,
   channelId?: string,
+  context?: CommandContext,
 ) => Promise<boolean>
 
 interface Session {
@@ -83,6 +91,37 @@ interface ReplyCardPayload {
 }
 
 // Card builders removed - used centralized card-builder.ts instead
+
+function extractPlainTextContent(content: string): string | null {
+  try {
+    const parsed = JSON.parse(content) as { text?: string }
+    if (typeof parsed.text === "string" && parsed.text.trim()) {
+      return parsed.text
+    }
+  } catch {
+    if (content.trim()) {
+      return content
+    }
+  }
+  return null
+}
+
+function normalizeComparableText(text: string): string {
+  return text
+    .replace(/\r\n/g, "\n")
+    .replace(/\u00a0/g, " ")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+}
+
+function collectMessageText(parts: Array<{ type?: string; text?: string }>): string {
+  return parts
+    .filter((part) => part.type === "text" && typeof part.text === "string")
+    .map((part) => part.text ?? "")
+    .join("")
+    .trim()
+}
 
 
 
@@ -341,6 +380,138 @@ export function createCommandHandler(deps: CommandHandlerDeps): CommandHandler {
     } else {
       await replyText(chatId, messageId, t(locale, "command.sessionSharedWithId", { sessionId: mapping.session_id }), channelId)
     }
+  }
+
+  async function resolveForkSourceMessageId(
+    sessionId: string,
+    replyToMessageId: string,
+    quotedText?: string,
+  ): Promise<string | null> {
+    try {
+      // If quoted text is provided directly (non-Feishu channels), use it
+      // instead of fetching from the IM platform API.
+      if (quotedText) {
+        return await matchQuotedTextToSessionMessage(sessionId, quotedText)
+      }
+
+      // Feishu: fetch the replied-to message content via API
+      const resp = await feishuClient.getMessage(replyToMessageId)
+      if (resp.code !== 0 || !resp.data) return null
+
+      const items = resp.data.items as Array<{
+        msg_type?: string
+        body?: { content?: string }
+      }> | undefined
+      const content = items?.[0]?.body?.content
+      if (!content) return null
+
+      const extractedText = extractPlainTextContent(content)
+      if (!extractedText) return null
+
+      return await matchQuotedTextToSessionMessage(sessionId, extractedText)
+    } catch (err) {
+      logger.warn(`/fork: failed to resolve reply target ${replyToMessageId}: ${err}`)
+      return null
+    }
+  }
+
+  /**
+   * Match a quoted text against opencode session messages and return
+   * the matching opencode message ID.
+   */
+  async function matchQuotedTextToSessionMessage(
+    sessionId: string,
+    quotedText: string,
+  ): Promise<string | null> {
+    try {
+      const normalizedQuoted = normalizeComparableText(quotedText)
+      if (!normalizedQuoted) return null
+
+      const messagesResp = await fetch(`${serverUrl}/session/${sessionId}/message?limit=200`)
+      if (!messagesResp.ok) {
+        throw new Error(`Failed to list messages: HTTP ${messagesResp.status}`)
+      }
+
+      const messages = (await messagesResp.json()) as Array<{
+        info?: { id?: string }
+        parts?: Array<{ type?: string; text?: string }>
+      }>
+
+      const exactMatch = [...messages].reverse().find((message) => {
+        const text = collectMessageText(message.parts ?? [])
+        return text && normalizeComparableText(text) === normalizedQuoted
+      })
+      if (exactMatch?.info?.id) {
+        return exactMatch.info.id
+      }
+
+      const fuzzyMatch = [...messages].reverse().find((message) => {
+        const text = collectMessageText(message.parts ?? [])
+        if (!text) return false
+        const normalizedText = normalizeComparableText(text)
+        return normalizedText.includes(normalizedQuoted) || normalizedQuoted.includes(normalizedText)
+      })
+      return fuzzyMatch?.info?.id ?? null
+    } catch (err) {
+      logger.warn(`/fork: failed to match quoted text against session messages: ${err}`)
+      return null
+    }
+  }
+
+  async function handleFork(
+    feishuKey: string,
+    chatId: string,
+    messageId: string,
+    channelId: string,
+    args: string[],
+    context?: CommandContext,
+  ): Promise<void> {
+    const locale = getLocale(channelId)
+    const mapping = sessionManager.getSession(feishuKey)
+    if (!mapping) {
+      await replyText(chatId, messageId, t(locale, "command.noSessionBound"), channelId)
+      return
+    }
+
+    let sourceMessageId = args[0]?.trim()
+    let attemptedReplyResolution = false
+    if (!sourceMessageId && context?.replyToMessageId) {
+      attemptedReplyResolution = true
+      sourceMessageId = await resolveForkSourceMessageId(mapping.session_id, context.replyToMessageId, context.quotedText) ?? undefined
+    }
+
+    if (!sourceMessageId && attemptedReplyResolution) {
+      await replyText(chatId, messageId, t(locale, "command.forkSourceNotFound"), channelId)
+      return
+    }
+
+    if (!sourceMessageId && args.length > 0) {
+      await replyText(chatId, messageId, t(locale, "command.forkSourceNotFound"), channelId)
+      return
+    }
+
+    const body = sourceMessageId ? { messageID: sourceMessageId } : {}
+    const resp = await fetch(`${serverUrl}/session/${mapping.session_id}/fork`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    })
+    if (!resp.ok) {
+      throw new Error(`Fork failed: HTTP ${resp.status}`)
+    }
+
+    const data = (await resp.json()) as { id?: string }
+    if (!data.id) {
+      throw new Error("Fork failed: missing session id in response")
+    }
+
+    sessionManager.setMapping(feishuKey, data.id, mapping.agent)
+    if (mapping.model) {
+      sessionManager.setModel(feishuKey, mapping.model)
+    }
+
+    logger.info(`/fork: forked ${mapping.session_id} -> ${data.id}${sourceMessageId ? ` at ${sourceMessageId}` : ""}`)
+    await replyText(chatId, messageId, t(locale, "command.sessionForked", { sessionId: data.id }), channelId)
   }
 
   async function handleUnshare(
@@ -656,8 +827,10 @@ export function createCommandHandler(deps: CommandHandlerDeps): CommandHandler {
 \`/sessions\` - ${t(locale, "help.sessions")}
 \`/projects\` - ${t(locale, "help.projects")}
 \`/status\` - ${t(locale, "help.status")}
+\`/wake\` - ${t(locale, "help.wake")}
 \`/compact\` - ${t(locale, "help.compact")}
 \`/share\` - ${t(locale, "help.share")}
+\`/fork\` - ${t(locale, "help.fork")}
 \`/unshare\` - ${t(locale, "help.unshare")}
 \`/rename\` - ${t(locale, "help.rename")}
 \`/abort\` - ${t(locale, "help.abort")}
@@ -671,9 +844,31 @@ export function createCommandHandler(deps: CommandHandlerDeps): CommandHandler {
 
     const card = buildHelpCard()
     await replyCard(chatId, messageId, {
-      text: "Use /new, /sessions, /projects, /agent, /models, /compact, /share, /abort, /help",
+      text: "Use /new, /sessions, /projects, /status, /wake, /agent, /models, /compact, /share, /fork, /abort, /help",
       card,
     }, channelId)
+  }
+
+  async function handleWake(
+    chatId: string,
+    messageId: string,
+    channelId: string,
+  ): Promise<void> {
+    const locale = getLocale(channelId)
+    if (!deps.serviceLauncher) {
+      await replyText(chatId, messageId, t(locale, "command.wakeUnavailable"), channelId)
+      return
+    }
+
+    await replyText(chatId, messageId, t(locale, "command.wakeStarting"), channelId)
+    const result = await deps.serviceLauncher.ensureServerReady("slash wake")
+
+    if (result.healthy) {
+      await replyText(chatId, messageId, t(locale, "command.wakeSuccess"), channelId)
+      return
+    }
+
+    await replyText(chatId, messageId, t(locale, "command.wakeFailed"), channelId)
   }
 
   async function handleCron(
@@ -1516,6 +1711,7 @@ export function createCommandHandler(deps: CommandHandlerDeps): CommandHandler {
     messageId: string,
     commandText: string,
     channelId: string = "feishu",
+    context?: CommandContext,
   ): Promise<boolean> {
     const trimmed = commandText.trim()
     const parts = trimmed.split(/\s+/)
@@ -1570,6 +1766,9 @@ export function createCommandHandler(deps: CommandHandlerDeps): CommandHandler {
         case "/share":
           await handleShare(feishuKey, chatId, messageId, channelId)
           return true
+        case "/fork":
+          await handleFork(feishuKey, chatId, messageId, channelId, parts.slice(1), context)
+          return true
         case "/unshare":
           await handleUnshare(feishuKey, chatId, messageId, channelId)
           return true
@@ -1578,6 +1777,9 @@ export function createCommandHandler(deps: CommandHandlerDeps): CommandHandler {
           return true
         case "/status":
           await handleStatus(feishuKey, chatId, messageId, channelId)
+          return true
+        case "/wake":
+          await handleWake(chatId, messageId, channelId)
           return true
         case "/":
         case "/help":
