@@ -11,6 +11,8 @@ import * as path from "node:path"
 
 /** Fixed config directory for all opencode-lark configs */
 export const CONFIG_DIR = path.join(os.homedir(), ".config", "opencode-lark")
+export const DEFAULT_SERVER_URL = "http://localhost:4096"
+export const DEFAULT_LAUNCHER_COMMAND = "opencode serve"
 
 /** Create CONFIG_DIR recursively if it doesn't exist */
 export function ensureConfigDir(): void {
@@ -70,5 +72,43 @@ export function loadEnvFile(filePath?: string): void {
     if (process.env[key] === undefined) {
       process.env[key] = value
     }
+  }
+}
+
+function isLocalServerUrl(serverUrl: string): boolean {
+  try {
+    const { hostname } = new URL(serverUrl)
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1"
+  } catch {
+    return false
+  }
+}
+
+export function shouldBootstrapLauncher(serverUrl: string): boolean {
+  return isLocalServerUrl(serverUrl)
+}
+
+export function buildLauncherEnvLines(serverUrl: string): string[] {
+  if (!shouldBootstrapLauncher(serverUrl)) return []
+
+  return [
+    "OPENCODE_LAUNCHER_ENABLED=true",
+    "OPENCODE_AUTO_START_SERVER=true",
+    `OPENCODE_SERVER_COMMAND=${DEFAULT_LAUNCHER_COMMAND}`,
+  ]
+}
+
+export function bootstrapLauncherEnv(serverUrl?: string): void {
+  const resolvedServerUrl = serverUrl || process.env.OPENCODE_SERVER_URL || DEFAULT_SERVER_URL
+  if (!shouldBootstrapLauncher(resolvedServerUrl)) return
+
+  if (process.env.OPENCODE_LAUNCHER_ENABLED === undefined) {
+    process.env.OPENCODE_LAUNCHER_ENABLED = "true"
+  }
+  if (process.env.OPENCODE_AUTO_START_SERVER === undefined) {
+    process.env.OPENCODE_AUTO_START_SERVER = "true"
+  }
+  if (process.env.OPENCODE_SERVER_COMMAND === undefined) {
+    process.env.OPENCODE_SERVER_COMMAND = DEFAULT_LAUNCHER_COMMAND
   }
 }

@@ -85,6 +85,15 @@ const HeartbeatConfigSchema = z.object({
   agent: z.string().default("build"),
 })
 
+const LauncherConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  autoStartServer: z.boolean().default(false),
+  serverCommand: z.string().optional(),
+  serverCwd: z.string().optional(),
+  serverStartTimeoutMs: z.number().int().positive().default(30000),
+  probeTimeoutMs: z.number().int().positive().default(4000),
+})
+
 const AppConfigSchema = z.object({
   feishu: FeishuConfigSchema.optional(),
   qq: QqConfigSchema.optional(),
@@ -97,6 +106,7 @@ const AppConfigSchema = z.object({
   progress: ProgressConfigSchema.optional(),
   cron: CronConfigSchema.optional(),
   heartbeat: HeartbeatConfigSchema.optional(),
+  launcher: LauncherConfigSchema.optional(),
   messageDebounceMs: z.number().int().min(0).optional().default(10000),
 }).refine(data => data.feishu || data.qq || data.telegram || data.discord || data.wechat || data.dingtalk, {
   message: "At least one channel (feishu, qq, telegram, discord, wechat, or dingtalk) must be configured."
@@ -106,6 +116,7 @@ export type AppConfig = z.infer<typeof AppConfigSchema>
 export type CronConfig = z.infer<typeof CronConfigSchema>
 export type CronJobConfig = z.infer<typeof CronJobSchema>
 export type HeartbeatConfig = z.infer<typeof HeartbeatConfigSchema>
+export type LauncherConfig = z.infer<typeof LauncherConfigSchema>
 export type TelegramConfig = z.infer<typeof TelegramConfigSchema>
 export type DiscordConfig = z.infer<typeof DiscordConfigSchema>
 export type WechatConfig = z.infer<typeof WechatConfigSchema>
@@ -153,6 +164,16 @@ export async function loadConfig(configPath?: string): Promise<AppConfig> {
       process.env["RELIABILITY_CRON_JOBS_FILE"] !== undefined ||
       process.env["RELIABILITY_CRON_API_PORT"] !== undefined ||
       process.env["RELIABILITY_CRON_API_HOST"] !== undefined
+    const launcherEnabledEnv = process.env["OPENCODE_LAUNCHER_ENABLED"]
+    const launcherAutoStartEnv = process.env["OPENCODE_AUTO_START_SERVER"]
+    const launcherCommandEnv = process.env["OPENCODE_SERVER_COMMAND"]
+    const launcherConfigured =
+      launcherEnabledEnv !== undefined ||
+      launcherAutoStartEnv !== undefined ||
+      launcherCommandEnv !== undefined ||
+      process.env["OPENCODE_SERVER_START_TIMEOUT_MS"] !== undefined ||
+      process.env["OPENCODE_SERVER_PROBE_TIMEOUT_MS"] !== undefined ||
+      process.env["OPENCODE_SERVER_CWD"] !== undefined
 
     rawText = JSON.stringify({
       feishu: process.env["FEISHU_APP_ID"] && process.env["FEISHU_APP_ID"] !== "cli_xxxxxxxxxxxxxxxx" && process.env["FEISHU_APP_ID"] !== "your_app_id_here" ? {
@@ -212,7 +233,15 @@ export async function loadConfig(configPath?: string): Promise<AppConfig> {
           ? process.env["RELIABILITY_HEARTBEAT_ALERT_CHATS"].split(",").map((s) => s.trim()).filter(Boolean)
           : [],
         agent: process.env["RELIABILITY_HEARTBEAT_AGENT"] ?? "build",
-      }
+      },
+      launcher: launcherConfigured ? {
+        enabled: launcherEnabledEnv === "true" || launcherAutoStartEnv === "true" || Boolean(launcherCommandEnv),
+        autoStartServer: launcherAutoStartEnv === "true",
+        serverCommand: launcherCommandEnv,
+        serverCwd: process.env["OPENCODE_SERVER_CWD"],
+        serverStartTimeoutMs: Number(process.env["OPENCODE_SERVER_START_TIMEOUT_MS"] ?? "30000"),
+        probeTimeoutMs: Number(process.env["OPENCODE_SERVER_PROBE_TIMEOUT_MS"] ?? "4000"),
+      } : undefined,
     })
   }
 

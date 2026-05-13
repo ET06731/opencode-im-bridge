@@ -45,8 +45,9 @@ import type { ChannelId } from "./channel/types.js"
 import { HeartbeatService } from "./cron/heartbeat.js"
 import { scheduledTaskRuntime } from "./scheduled-task/runtime.js"
 import type { TaskDelivery } from "./scheduled-task/types.js"
-import { loadEnvFile } from "./utils/env-loader.js"
+import { bootstrapLauncherEnv, loadEnvFile } from "./utils/env-loader.js"
 import { needsSetup, runSetupWizard, pickConfig } from "./cli/setup-wizard.js"
+import { createServiceLauncher } from "./reliability/service-launcher.js"
 
 const logger = createLogger("opencode-im")
 
@@ -81,6 +82,8 @@ async function main(): Promise<void> {
     // If needsSetup() is false (env vars already set externally), proceed without loading file
   }
 
+  bootstrapLauncherEnv()
+
   // ═══════════════════════════════════════════
   // Phase 1: Load Config
   // ═══════════════════════════════════════════
@@ -104,11 +107,23 @@ async function main(): Promise<void> {
     process.env.OPENCODE_SERVER_URL ?? "http://localhost:4096"
   ).replace("localhost", "127.0.0.1")
   logger.info(`Connecting to opencode server at ${serverUrl}`)
+  const serviceLauncher = config.launcher
+    ? createServiceLauncher({
+      config: config.launcher,
+      serverUrl,
+      logger,
+    })
+    : undefined
   const client = createOpencodeClient({
     baseUrl: serverUrl,
   })
 
   async function waitForServer(maxRetries = 10): Promise<void> {
+    const bootAttempt = await serviceLauncher?.ensureServerReady("startup")
+    if (bootAttempt?.healthy) {
+      return
+    }
+
     let delay = 250
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
@@ -253,6 +268,7 @@ async function main(): Promise<void> {
     outboundMedia,
     debounceMs: config.messageDebounceMs,
     channelManager,
+    serviceLauncher,
   })
 
   // Create card action handlers (Feishu only)
@@ -498,6 +514,7 @@ async function main(): Promise<void> {
       serverUrl,
       feishuClient,
       logger,
+      serviceLauncher,
     })
     heartbeatService.start()
   }

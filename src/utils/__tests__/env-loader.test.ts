@@ -2,7 +2,16 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import * as fs from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
-import { loadEnvFile, ensureConfigDir, listEnvFiles, CONFIG_DIR } from "../env-loader.js"
+import {
+  loadEnvFile,
+  ensureConfigDir,
+  listEnvFiles,
+  CONFIG_DIR,
+  bootstrapLauncherEnv,
+  buildLauncherEnvLines,
+  shouldBootstrapLauncher,
+  DEFAULT_LAUNCHER_COMMAND,
+} from "../env-loader.js"
 
 describe("env-loader", () => {
   let tempDir: string
@@ -18,12 +27,20 @@ describe("env-loader", () => {
     originalEnv.QUOTED_KEY = process.env.QUOTED_KEY
     originalEnv.SINGLE_QUOTED = process.env.SINGLE_QUOTED
     originalEnv.MULTI_EQUAL = process.env.MULTI_EQUAL
+    originalEnv.OPENCODE_SERVER_URL = process.env.OPENCODE_SERVER_URL
+    originalEnv.OPENCODE_LAUNCHER_ENABLED = process.env.OPENCODE_LAUNCHER_ENABLED
+    originalEnv.OPENCODE_AUTO_START_SERVER = process.env.OPENCODE_AUTO_START_SERVER
+    originalEnv.OPENCODE_SERVER_COMMAND = process.env.OPENCODE_SERVER_COMMAND
     // Delete them from process.env so we start clean
     delete process.env.TEST_KEY
     delete process.env.TEST_KEY_2
     delete process.env.QUOTED_KEY
     delete process.env.SINGLE_QUOTED
     delete process.env.MULTI_EQUAL
+    delete process.env.OPENCODE_SERVER_URL
+    delete process.env.OPENCODE_LAUNCHER_ENABLED
+    delete process.env.OPENCODE_AUTO_START_SERVER
+    delete process.env.OPENCODE_SERVER_COMMAND
   })
 
   afterEach(() => {
@@ -52,6 +69,26 @@ describe("env-loader", () => {
       delete process.env.MULTI_EQUAL
     } else {
       process.env.MULTI_EQUAL = originalEnv.MULTI_EQUAL
+    }
+    if (originalEnv.OPENCODE_SERVER_URL === undefined) {
+      delete process.env.OPENCODE_SERVER_URL
+    } else {
+      process.env.OPENCODE_SERVER_URL = originalEnv.OPENCODE_SERVER_URL
+    }
+    if (originalEnv.OPENCODE_LAUNCHER_ENABLED === undefined) {
+      delete process.env.OPENCODE_LAUNCHER_ENABLED
+    } else {
+      process.env.OPENCODE_LAUNCHER_ENABLED = originalEnv.OPENCODE_LAUNCHER_ENABLED
+    }
+    if (originalEnv.OPENCODE_AUTO_START_SERVER === undefined) {
+      delete process.env.OPENCODE_AUTO_START_SERVER
+    } else {
+      process.env.OPENCODE_AUTO_START_SERVER = originalEnv.OPENCODE_AUTO_START_SERVER
+    }
+    if (originalEnv.OPENCODE_SERVER_COMMAND === undefined) {
+      delete process.env.OPENCODE_SERVER_COMMAND
+    } else {
+      process.env.OPENCODE_SERVER_COMMAND = originalEnv.OPENCODE_SERVER_COMMAND
     }
     // Clean up temp files
     if (fs.existsSync(tempDir)) {
@@ -148,6 +185,42 @@ TEST_KEY_2=value2
     fs.writeFileSync(tempEnvPath, 'QUOTED_KEY=""\n')
     loadEnvFile(tempEnvPath)
     expect(process.env.QUOTED_KEY).toBe("")
+  })
+
+  it("reports launcher bootstrap for local URLs", () => {
+    expect(shouldBootstrapLauncher("http://localhost:4096")).toBe(true)
+    expect(buildLauncherEnvLines("http://127.0.0.1:4096")).toEqual([
+      "OPENCODE_LAUNCHER_ENABLED=true",
+      "OPENCODE_AUTO_START_SERVER=true",
+      `OPENCODE_SERVER_COMMAND=${DEFAULT_LAUNCHER_COMMAND}`,
+    ])
+  })
+
+  it("skips launcher bootstrap for remote URLs", () => {
+    expect(shouldBootstrapLauncher("https://example.com")).toBe(false)
+    expect(buildLauncherEnvLines("https://example.com")).toEqual([])
+  })
+
+  it("bootstraps missing launcher env for local startup", () => {
+    process.env.OPENCODE_SERVER_URL = "http://localhost:4096"
+
+    bootstrapLauncherEnv()
+
+    expect(process.env.OPENCODE_LAUNCHER_ENABLED).toBe("true")
+    expect(process.env.OPENCODE_AUTO_START_SERVER).toBe("true")
+    expect(process.env.OPENCODE_SERVER_COMMAND).toBe(DEFAULT_LAUNCHER_COMMAND)
+  })
+
+  it("preserves explicit launcher env values during bootstrap", () => {
+    process.env.OPENCODE_SERVER_URL = "http://localhost:4096"
+    process.env.OPENCODE_LAUNCHER_ENABLED = "false"
+    process.env.OPENCODE_SERVER_COMMAND = "custom serve"
+
+    bootstrapLauncherEnv()
+
+    expect(process.env.OPENCODE_LAUNCHER_ENABLED).toBe("false")
+    expect(process.env.OPENCODE_AUTO_START_SERVER).toBe("true")
+    expect(process.env.OPENCODE_SERVER_COMMAND).toBe("custom serve")
   })
 })
 
