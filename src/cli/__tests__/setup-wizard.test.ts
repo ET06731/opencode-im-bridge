@@ -11,6 +11,7 @@ vi.mock("node:fs", () => ({
 }))
 
 import { needsSetup } from "../setup-wizard.js"
+import { buildLauncherEnvLines, shouldBootstrapLauncher } from "../../utils/env-loader.js"
 
 describe("setup-wizard", () => {
   const mockExistsSync = fs.existsSync as unknown as ReturnType<typeof vi.fn>
@@ -142,5 +143,20 @@ describe("setup-wizard", () => {
     // Should have checked CONFIG_DIR and config search paths
     expect(mockExistsSync).toHaveBeenCalled()
     expect(mockExistsSync.mock.calls.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it("bootstraps launcher defaults for local server URLs", () => {
+    expect(shouldBootstrapLauncher("http://localhost:4096")).toBe(true)
+    expect(shouldBootstrapLauncher("http://127.0.0.1:4096")).toBe(true)
+    expect(buildLauncherEnvLines("http://localhost:4096")).toEqual([
+      "OPENCODE_LAUNCHER_ENABLED=true",
+      "OPENCODE_AUTO_START_SERVER=true",
+      "OPENCODE_SERVER_COMMAND=opencode serve",
+    ])
+  })
+
+  it("skips launcher bootstrap for remote server URLs", () => {
+    expect(shouldBootstrapLauncher("https://example.com")).toBe(false)
+    expect(buildLauncherEnvLines("https://example.com")).toEqual([])
   })
 })

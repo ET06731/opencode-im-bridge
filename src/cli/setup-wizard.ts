@@ -7,7 +7,15 @@ import * as fs from "node:fs"
 import * as path from "node:path"
 import * as readline from "node:readline/promises"
 import { createLogger } from "../utils/logger.js"
-import { listEnvFiles, ensureConfigDir, CONFIG_DIR } from "../utils/env-loader.js"
+import {
+  listEnvFiles,
+  ensureConfigDir,
+  CONFIG_DIR,
+  DEFAULT_SERVER_URL,
+  DEFAULT_LAUNCHER_COMMAND,
+  shouldBootstrapLauncher,
+  buildLauncherEnvLines,
+} from "../utils/env-loader.js"
 
 const logger = createLogger("setup-wizard")
 
@@ -323,28 +331,40 @@ export async function runSetupWizard(): Promise<void> {
       // ── Step 2/3: opencode Server ──
       process.stdout.write(dim("Step 2/3: opencode Server") + "\n")
 
-      const DEFAULT_URL = "http://localhost:4096"
       const urlInput = (
-        await rl2.question(`  opencode server URL [${DEFAULT_URL}]: `)
+        await rl2.question(`  opencode server URL [${DEFAULT_SERVER_URL}]: `)
       ).trim()
-      const serverUrl = urlInput || DEFAULT_URL
+      const serverUrl = urlInput || DEFAULT_SERVER_URL
 
-      // Connectivity check with retry loop
-      let connected = false
-      while (!connected) {
-        try {
-          await fetch(serverUrl)
-          connected = true
-          process.stdout.write(green("  ✓ Connected to opencode server") + "\n\n")
-        } catch {
+      try {
+        await fetch(serverUrl)
+        process.stdout.write(green("  ✓ Connected to opencode server") + "\n\n")
+      } catch {
+        if (shouldBootstrapLauncher(serverUrl)) {
           process.stdout.write(
-            red(`  ✗ Cannot reach opencode server at ${serverUrl}`) +
-            "\n\n" +
-            "  Please start it in another terminal:\n" +
-            dim("    OPENCODE_SERVER_PORT=4096 opencode serve") +
+            dim(`  未检测到 opencode 服务：${serverUrl}`) + "\n" +
+            dim(`  将自动写入 launcher 默认配置，后续启动时会尝试执行：${DEFAULT_LAUNCHER_COMMAND}`) +
             "\n\n",
           )
-          await rl2.question("  Press Enter to retry...")
+        } else {
+          let connected = false
+          while (!connected) {
+            process.stdout.write(
+              red(`  ✗ Cannot reach opencode server at ${serverUrl}`) +
+              "\n\n" +
+              "  Please start it in another terminal or use a reachable server URL:\n" +
+              dim("    OPENCODE_SERVER_PORT=4096 opencode serve") +
+              "\n\n",
+            )
+            await rl2.question("  Press Enter to retry...")
+            try {
+              await fetch(serverUrl)
+              connected = true
+              process.stdout.write(green("  ✓ Connected to opencode server") + "\n\n")
+            } catch {
+              // Continue retry loop until the server is reachable.
+            }
+          }
         }
       }
 
@@ -392,9 +412,10 @@ export async function runSetupWizard(): Promise<void> {
         lines.push(`WECHAT_ENABLED=true`)
       }
 
-      if (serverUrl !== DEFAULT_URL) {
+      if (serverUrl !== DEFAULT_SERVER_URL) {
         lines.push(`OPENCODE_SERVER_URL=${serverUrl}`)
       }
+      lines.push(...buildLauncherEnvLines(serverUrl))
 
       fs.writeFileSync(envPath, lines.join("\n") + "\n", "utf-8")
       process.stdout.write(green(`  ✓ Configuration saved to ${envPath}`) + "\n")
@@ -437,8 +458,18 @@ export async function runSetupWizard(): Promise<void> {
       if (setupWechat) {
         process.env.WECHAT_ENABLED = "true"
       }
-      if (serverUrl !== DEFAULT_URL) {
+      if (serverUrl !== DEFAULT_SERVER_URL) {
         process.env.OPENCODE_SERVER_URL = serverUrl
+      }
+      const launcherEnvLines = buildLauncherEnvLines(serverUrl)
+      if (launcherEnvLines.length > 0) {
+        process.env.OPENCODE_LAUNCHER_ENABLED = "true"
+        process.env.OPENCODE_AUTO_START_SERVER = "true"
+        process.env.OPENCODE_SERVER_COMMAND = DEFAULT_LAUNCHER_COMMAND
+      } else {
+        delete process.env.OPENCODE_LAUNCHER_ENABLED
+        delete process.env.OPENCODE_AUTO_START_SERVER
+        delete process.env.OPENCODE_SERVER_COMMAND
       }
 
       logger.info("Setup wizard completed, .env written to %s", envPath)

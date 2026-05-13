@@ -148,6 +148,11 @@ export function buildHelpCard(): Record<string, unknown> {
         },
         {
           tag: "button",
+          text: { tag: "plain_text", content: "⚙️ 唤醒服务端" },
+          value: { action: "command_execute", command: "/wake" },
+        },
+        {
+          tag: "button",
           text: { tag: "plain_text", content: "🤖 选择 Agent" },
           value: { action: "command_execute", command: "/agent" },
         },
@@ -168,7 +173,7 @@ export function buildHelpCard(): Record<string, unknown> {
         },
         {
           tag: "button",
-          text: { tag: "plain_text", content: "🔓 取消分享" },
+text: { tag: "plain_text", content: "🔓 取消分享" },
           value: { action: "command_execute", command: "/unshare" },
         },
         {

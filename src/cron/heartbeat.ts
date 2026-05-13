@@ -4,6 +4,7 @@ import type { Logger } from "../utils/logger.js"
 import type { FeishuApiClient } from "../feishu/api-client.js"
 import type { SessionManager } from "../session/session-manager.js"
 import type { HeartbeatConfig } from "../utils/config.js"
+import type { ServiceLauncher } from "../reliability/service-launcher.js"
 
 export interface HeartbeatOptions {
   config: HeartbeatConfig
@@ -11,6 +12,7 @@ export interface HeartbeatOptions {
   sessionManager: SessionManager
   feishuClient?: FeishuApiClient
   logger: Logger
+  serviceLauncher?: ServiceLauncher
 }
 
 export class HeartbeatService {
@@ -61,6 +63,8 @@ export class HeartbeatService {
     }
 
     try {
+      await this.options.serviceLauncher?.ensureServerReady("heartbeat")
+
       // Create or get the dedicated heartbeat session
       const heartbeatSessionId = await sessionManager.getOrCreate("reliability:heartbeat")
       
