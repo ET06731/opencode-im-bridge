@@ -17,7 +17,7 @@ import { t, getLocale } from "../i18n/index.js"
 import type { ChannelManager } from "../channel/manager.js"
 
 import { readFile, writeFile } from "node:fs/promises"
-import { join } from "node:path"
+import { join, resolve } from "node:path"
 import { homedir } from "node:os"
 
 import {
@@ -716,6 +716,15 @@ export function createCommandHandler(deps: CommandHandlerDeps): CommandHandler {
 
     if (args[0]) {
       const targetProjectArg = args.join(" ").trim()
+
+      if (!targetProjectArg) {
+        await replyText(chatId, messageId, t(locale, "command.projectCreateFailed", { project: targetProjectArg || "(empty)", error: "Project path cannot be empty" }), channelId)
+        return
+      }
+      if (targetProjectArg.includes("..")) {
+        await replyText(chatId, messageId, t(locale, "command.projectCreateFailed", { project: targetProjectArg, error: "Path traversal (\"..\") is not allowed" }), channelId)
+        return
+      }
       const resp = await fetch(`${serverUrl}/project`)
       if (!resp.ok) {
         throw new Error(`List projects failed: HTTP ${resp.status}`)
@@ -734,8 +743,7 @@ export function createCommandHandler(deps: CommandHandlerDeps): CommandHandler {
       if (!matched) {
         await replyText(chatId, messageId, t(locale, "command.projectCreating", { project: targetProjectArg }), channelId)
 
-        const baseDir = process.env.OPENCODE_CWD || process.cwd()
-        const newProjectDir = `${baseDir}/${targetProjectArg}`
+        const newProjectDir = resolve(targetProjectArg)
 
         const createResp = await fetch(`${serverUrl}/session?directory=${encodeURIComponent(newProjectDir)}`, {
           method: "POST",
@@ -1150,7 +1158,7 @@ export function createCommandHandler(deps: CommandHandlerDeps): CommandHandler {
     const available = agents.filter((agent) => agent.mode === "primary" || agent.mode === "all")
     const names = available.map((agent) => agent.name)
     const current = mapping.agent || "build"
-    const targetRaw = args[0]
+    const targetRaw = args.join(" ")
 
     if (!targetRaw || targetRaw.toLowerCase() === "list") {
       const listText = names.length
@@ -1195,7 +1203,7 @@ export function createCommandHandler(deps: CommandHandlerDeps): CommandHandler {
       return
     }
 
-    const normalize = (n: string) => n.replace(/\s*\([^)]*\)/, "").replace(/\s+/g, " ").trim().toLowerCase()
+    const normalize = (n: string) => n.replace(/\s*\([^)]*\)/, "").replace(/ - .*/, "").replace(/\s+/g, " ").trim().toLowerCase()
     const normalizedTarget = normalize(targetRaw)
 
     const matched = names.find((name) => name.toLowerCase() === targetRaw.toLowerCase() || normalize(name) === normalizedTarget)

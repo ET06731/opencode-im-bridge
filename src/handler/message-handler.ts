@@ -693,6 +693,23 @@ export function createMessageHandler(
       return rawText
     }
 
+    async function startStreamingPrompt(): Promise<string> {
+      const url = `${serverUrl}/session/${currentSessionId}/prompt_async`
+      const resp = await fetchWithWakeRetry(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: postBody,
+      }, "incoming message (streaming)")
+      if (resp.status === 404) {
+        throw new SessionGoneError(currentSessionId, 404)
+      }
+      if (!resp.ok) {
+        throw new Error(`Prompt async HTTP error: ${resp.status}`)
+      }
+      logger.info(`Prompt async accepted for session ${currentSessionId}`)
+      return ""
+    }
+
     /** Recover from 404: clear stale mapping, re-resolve session, retry POST once. */
     async function postWithRecovery(): Promise<string> {
       try {
@@ -740,7 +757,7 @@ export function createMessageHandler(
             sid,
             eventListeners,
             eventProcessor,
-            postToOpencode,
+            startStreamingPrompt,
             (_responseText: string) => {
               if (ownershipListener) removeListener(eventListeners, sid, ownershipListener)
               if (deps.observer) deps.observer.markSessionFree(sid)
@@ -992,6 +1009,23 @@ export function createMessageHandler(
       return rawText
     }
 
+    async function startStreamingPrompt(): Promise<string> {
+      const url = `${serverUrl}/session/${currentSessionId}/prompt_async`
+      const resp = await fetchWithWakeRetry(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: postBody,
+      }, "debounced message (streaming)")
+      if (resp.status === 404) {
+        throw new SessionGoneError(currentSessionId, 404)
+      }
+      if (!resp.ok) {
+        throw new Error(`Prompt async HTTP error: ${resp.status}`)
+      }
+      logger.info(`Prompt async accepted for session ${currentSessionId} (debounced)`)
+      return ""
+    }
+
     /** Recover from 404: clear stale mapping, re-resolve session, retry POST once. */
     async function postWithRecovery(): Promise<string> {
       try {
@@ -1041,7 +1075,7 @@ export function createMessageHandler(
             sid,
             eventListeners,
             eventProcessor,
-            postToOpencode,
+            startStreamingPrompt,
             (_responseText: string) => {
               if (ownershipListener) removeListener(eventListeners, sid, ownershipListener)
               if (deps.observer) deps.observer.markSessionFree(sid)

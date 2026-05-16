@@ -284,7 +284,7 @@ export function buildModelSelectorCard(
           tag: "markdown",
           content: otherModels.length > 0 ? "**选择要切换的模型：**" : "当前已是全部可用模型。",
         },
-        ...otherModels.slice(0, 8).map((model) => ({
+        ...otherModels.slice(0, 18).map((model) => ({
           tag: "button",
           text: {
             tag: "plain_text",
@@ -293,18 +293,6 @@ export function buildModelSelectorCard(
           type: "default",
           value: { action: "command_execute", command: `/models ${model.id}` },
         })),
-        ...(otherModels.length > 8
-          ? [{
-            tag: "overflow",
-            options: otherModels.slice(8, 18).map((model) => ({
-              text: {
-                tag: "plain_text",
-                content: `${model.providerName} / ${model.modelName}`,
-              },
-              value: `/models ${model.id}`,
-            })),
-          }]
-          : []),
         ...(otherModels.length > 18
           ? [{
             tag: "markdown",
@@ -369,8 +357,9 @@ export function buildProjectCard(
   currentWorktree?: string,
 ): Record<string, unknown> {
   const normalizedCurrent = (currentWorktree || "").replace(/\\/g, "/").toLowerCase()
-  const visibleProjects = projects.slice(0, 10)
-  const truncatedCount = Math.max(0, projects.length - visibleProjects.length)
+  // Feishu card limit is ~50 elements; show up to 20 as buttons, overflow as text
+  const visibleProjects = projects.slice(0, 20)
+  const hiddenCount = Math.max(0, projects.length - visibleProjects.length)
 
   return {
     schema: "2.0",
@@ -401,10 +390,10 @@ export function buildProjectCard(
             value: { action: "command_execute", command: `/projects ${name}` },
           }
         }),
-        ...(truncatedCount > 0
+        ...(hiddenCount > 0
           ? [{
             tag: "markdown",
-            content: `还有 ${truncatedCount} 个项目，使用 \`/projects <名称>\` 直接切换`,
+            content: `_还有 ${hiddenCount} 个项目，使用 \`/projects <路径>\` 直接切换_`,
           }]
           : []),
         ...(projects.length === 0

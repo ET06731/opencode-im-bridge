@@ -139,6 +139,24 @@ async function downloadResourceImpl(
   return { data, filename }
 }
 
+async function parseFeishuJsonResponse(
+  response: Response,
+  urlPath: string,
+): Promise<FeishuApiResponse> {
+  const rawText = await response.text()
+  if (!rawText.trim()) {
+    return response.ok
+      ? { code: 0, msg: "ok" }
+      : { code: response.status, msg: `HTTP ${response.status}` }
+  }
+
+  try {
+    return JSON.parse(rawText) as FeishuApiResponse
+  } catch (err) {
+    throw new Error(`Failed to parse JSON for ${urlPath}: ${err}; body=${rawText.slice(0, 200)}`)
+  }
+}
+
 export function createFeishuApiClient(options: FeishuApiClientOptions): FeishuApiClient {
   const { appId, appSecret } = options
   let tokenState: TokenState | null = null
@@ -214,7 +232,7 @@ export function createFeishuApiClient(options: FeishuApiClientOptions): FeishuAp
       body: body ? JSON.stringify(body) : undefined,
     })
 
-    const data = (await response.json()) as FeishuApiResponse
+    const data = await parseFeishuJsonResponse(response, urlPath)
 
     // Token expired — refresh and retry once
     if (data.code === 99991663 && retryCount < 1) {
@@ -328,9 +346,23 @@ export function createFeishuApiClient(options: FeishuApiClientOptions): FeishuAp
     },
 
     async sendTypingIndicator(chatId) {
-      return apiRequest("POST", "/im/v1/messages/typing_indicators", {
-        receive_id: chatId,
+      const token = await getToken()
+      const urlPath = "/im/v1/messages/typing_indicators"
+      const response = await fetch(`${FEISHU_BASE_URL}${urlPath}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ receive_id: chatId }),
       })
+
+      if (response.status === 404) {
+        logger.info("Feishu typing indicator endpoint unavailable, skipping")
+        return { code: 0, msg: "typing indicator unsupported" }
+      }
+
+      return parseFeishuJsonResponse(response, urlPath)
     },
   }
 }

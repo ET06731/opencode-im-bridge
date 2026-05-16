@@ -8,6 +8,7 @@ interface SessionManagerOptions {
   serverUrl: string
   db: Database
   defaultAgent: string
+  defaultModel?: string | null
 }
 
 export interface SessionManager {
@@ -35,7 +36,7 @@ interface TuiSession {
 export function createSessionManager(
   options: SessionManagerOptions,
 ): SessionManager {
-  const { serverUrl, db, defaultAgent } = options
+  const { serverUrl, db, defaultAgent, defaultModel = null } = options
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS feishu_sessions (
@@ -153,7 +154,7 @@ export function createSessionManager(
       const discovered = await discoverTuiSession()
       if (discovered) {
         const now = Date.now()
-        upsertStmt.run(feishuKey, discovered.id, agentName, null, now, now, 1)
+        upsertStmt.run(feishuKey, discovered.id, agentName, defaultModel, now, now, 1)
 
         logger.info(`Bound to TUI session: ${feishuKey} → ${discovered.id}`)
 
@@ -162,7 +163,7 @@ export function createSessionManager(
 
       const sessionId = await createNewSession(feishuKey)
       const now = Date.now()
-      upsertStmt.run(feishuKey, sessionId, agentName, null, now, now, 0)
+      upsertStmt.run(feishuKey, sessionId, agentName, defaultModel, now, now, 0)
 
       logger.info(`Session created: ${feishuKey} → ${sessionId}`)
 
@@ -192,7 +193,7 @@ export function createSessionManager(
       const agentName = agent ?? (sameSession ? existing?.agent : defaultAgent) ?? defaultAgent
 
       const now = Date.now()
-      const nextModel = existing?.model ?? null
+      const nextModel = existing?.model ?? defaultModel
 
       const result = upsertStmt.run(feishuKey, sessionId, agentName, nextModel, now, now, 1)
       if (result.changes > 0) {

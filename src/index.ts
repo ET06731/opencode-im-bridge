@@ -16,6 +16,9 @@
  */
 
 import { createOpencodeClient } from "@opencode-ai/sdk/v2"
+import { resolve } from "node:path"
+import { homedir } from "node:os"
+import { readFile } from "node:fs/promises"
 import { loadConfig } from "./utils/config.js"
 import { initDatabase } from "./utils/db.js"
 import { createLogger } from "./utils/logger.js"
@@ -106,7 +109,8 @@ async function main(): Promise<void> {
   const serverUrl = (
     process.env.OPENCODE_SERVER_URL ?? "http://localhost:4096"
   ).replace("localhost", "127.0.0.1")
-  logger.info(`Connecting to opencode server at ${serverUrl}`)
+  const opencodeDirectory = process.env.OPENCODE_CWD || process.cwd()
+  logger.info(`Connecting to opencode server at ${serverUrl} (directory: ${opencodeDirectory})`)
   const serviceLauncher = config.launcher
     ? createServiceLauncher({
       config: config.launcher,
@@ -116,7 +120,14 @@ async function main(): Promise<void> {
     : undefined
   const client = createOpencodeClient({
     baseUrl: serverUrl,
+    directory: opencodeDirectory,
   })
+  const normalizedOpencodeDirectory = normalizeDirectory(opencodeDirectory)
+
+  function normalizeDirectory(directory: string): string {
+    const resolved = resolve(directory)
+    return process.platform === "win32" ? resolved.toLowerCase() : resolved
+  }
 
   async function waitForServer(maxRetries = 10): Promise<void> {
     const bootAttempt = await serviceLauncher?.ensureServerReady("startup")
@@ -185,10 +196,44 @@ async function main(): Promise<void> {
 
   const channelManager = new ChannelManager({ logger })
 
+  // Phase 4a: Discover server defaults for agent and model
+  let defaultAgent = config.defaultAgent
+  let defaultModel: string | null = null
+
+  try {
+    const agentResp = await fetch(`${serverUrl}/agent`)
+    if (agentResp.ok) {
+      const agents = (await agentResp.json()) as Array<{ name: string; mode: string }>
+      const primary = agents.find((a) => a.mode === "primary" || a.mode === "all")
+      if (primary) {
+        defaultAgent = primary.name
+        logger.info(`Discovered server default agent: "${primary.name}"`)
+      }
+    }
+  } catch (err) {
+    logger.warn(`Failed to discover server default agent: ${err}`)
+  }
+
+  try {
+    const home = homedir()
+    const statePath = resolve(home, ".local", "state", "opencode", "model.json")
+    const content = await readFile(statePath, "utf-8")
+    const state = JSON.parse(content) as {
+      favorite?: Array<{ providerID: string; modelID: string }>
+    }
+    const favoriteModel = state.favorite?.[0]
+    if (favoriteModel) {
+      defaultModel = `${favoriteModel.providerID}/${favoriteModel.modelID}`
+      logger.info(`Discovered server default model: "${defaultModel}"`)
+    }
+  } catch {
+  }
+
   const sessionManager = createSessionManager({
     serverUrl,
     db: db.sessions,
-    defaultAgent: config.defaultAgent,
+    defaultAgent,
+    defaultModel,
   })
 
   // Validate stored session mappings against the running opencode server
@@ -331,6 +376,17 @@ async function main(): Promise<void> {
         await commandHandler(chatId, chatId, messageId, (rawVal as any).command)
         return
       }
+      // Handle overflow / nested value: Feishu may wrap the option's value
+      // in { value: "..." } or { selected_option: "..." }
+      if (rawVal && typeof rawVal === "object") {
+        const nestedCmd = (rawVal as any).value ?? (rawVal as any).selected_option
+        if (typeof nestedCmd === "string" && nestedCmd.startsWith("/")) {
+          const chatId = action.open_chat_id
+          const messageId = action.open_message_id
+          await commandHandler(chatId, chatId, messageId, nestedCmd)
+          return
+        }
+      }
     }
 
     logger.warn(`Unknown card action type: ${actionType}, value: ${JSON.stringify(action.action?.value)?.slice(0, 100)}`)
@@ -371,6 +427,21 @@ async function main(): Promise<void> {
     }
   }
 
+  function dispatchGlobalSseEvent(event: unknown): void {
+    const globalEvent = event as Record<string, unknown>
+    const directory = globalEvent?.directory
+    const payload = globalEvent?.payload
+
+    if (typeof directory === "string") {
+      const normalizedEventDirectory = normalizeDirectory(directory)
+      if (normalizedEventDirectory !== normalizedOpencodeDirectory) {
+        return
+      }
+    }
+
+    dispatchSseEvent(payload)
+  }
+
   /**
    * SSE subscription loop with exponential-backoff reconnect.
    * Must be started AFTER abortController is created.
@@ -379,19 +450,21 @@ async function main(): Promise<void> {
     let delay = 1_000
     while (!signal.aborted) {
       try {
-        const events = await client.event.subscribe()
-        logger.info("SSE event stream connected")
+        const events = await client.global.event()
+        const connectedAt = Date.now()
+        logger.info("SSE global event stream connected")
         delay = 1_000  // reset backoff on successful connect
         for await (const event of events.stream) {
           if (signal.aborted) break
-          dispatchSseEvent(event)
+          dispatchGlobalSseEvent(event)
         }
         if (!signal.aborted) {
-          logger.warn("SSE event stream ended, reconnecting...")
+          const durationMs = Date.now() - connectedAt
+          logger.warn(`SSE global event stream ended after ${durationMs}ms, reconnecting...`)
         }
       } catch (err) {
         if (signal.aborted) break
-        logger.warn(`SSE subscription error: ${err}. Retrying in ${delay}ms...`)
+        logger.warn(`SSE global subscription error: ${err}. Retrying in ${delay}ms...`)
       }
       if (!signal.aborted) {
         await new Promise((r) => setTimeout(r, delay))
@@ -567,6 +640,9 @@ async function main(): Promise<void> {
     serverUrl,
     logger,
     snapshotAttachments: (chatId: string) => outboundMedia.snapshotAttachments(chatId),
+    addSseListener: (sessionId, fn) => addListener(eventListeners, sessionId, fn),
+    removeSseListener: (sessionId, fn) => removeListener(eventListeners, sessionId, fn),
+    ownedSessions,
   })
   logger.info("Scheduled task runtime initialized")
 

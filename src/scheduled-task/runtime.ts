@@ -31,6 +31,12 @@ interface RuntimeConfig {
   timeoutMs?: number
   /** Called before task execution to snapshot existing attachments */
   snapshotAttachments?: (chatId: string) => Promise<void>
+  /** Register an SSE listener for session.idle events */
+  addSseListener?: (sessionId: string, fn: (event: unknown) => void) => void
+  /** Remove a previously registered SSE listener */
+  removeSseListener?: (sessionId: string, fn: (event: unknown) => void) => void
+  /** Track owned sessions so EventProcessor doesn't filter them out */
+  ownedSessions?: Set<string>
 }
 
 /**
@@ -161,7 +167,7 @@ export class ScheduledTaskRuntime {
       return
     }
 
-    const { serverUrl, logger, timeoutMs } = this.config
+    const { serverUrl, logger, timeoutMs, addSseListener, removeSseListener, ownedSessions } = this.config
 
     logger.info(`[runtime] Executing task "${task.name}" (id=${taskId})`)
 
@@ -181,6 +187,9 @@ export class ScheduledTaskRuntime {
         serverUrl,
         logger,
         timeoutMs,
+        addSseListener,
+        removeSseListener,
+        ownedSessions,
       })
 
       const delivery: TaskDelivery = {

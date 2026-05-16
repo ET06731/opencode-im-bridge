@@ -180,14 +180,14 @@ export function createOutboundMediaHandler(
       return
     }
 
-    logger.info(`[OutboundMedia] Scanning for new files, snapshot has ${snapshot.size} files: ${Array.from(snapshot).join(", ")}`)
+    logger.info(`[OutboundMedia] Scanning for new files, snapshot has ${snapshot.size} files`)
     logger.info(`[OutboundMedia] Allowlist directories: ${allowlist.join(", ")}`)
 
     for (const dir of allowlist) {
       let entries: string[]
       try {
         entries = await readdir(dir)
-        logger.info(`[OutboundMedia] Directory ${dir} has ${entries.length} entries: ${entries.join(", ")}`)
+        logger.info(`[OutboundMedia] Directory ${dir} has ${entries.length} entries`)
       } catch (err) {
         logger.warn(`[OutboundMedia] Failed to read directory ${dir}: ${err}`)
         continue
@@ -217,14 +217,14 @@ export function createOutboundMediaHandler(
       for (const dir of allowlist) {
         try {
           const entries = await readdir(dir)
-          logger.info(`[OutboundMedia] Directory ${dir} has ${entries.length} files: ${entries.join(", ")}`)
+          logger.info(`[OutboundMedia] Directory ${dir} has ${entries.length} files`)
           for (const f of entries) snapshot.add(f)
         } catch (err) {
           logger.warn(`[OutboundMedia] Failed to read directory ${dir} for snapshot: ${err}`)
         }
       }
       dirSnapshots.set(targetAddress, snapshot)
-      logger.info(`[OutboundMedia] Snapshot taken for ${targetAddress}: ${snapshot.size} files: ${Array.from(snapshot).join(", ")}`)
+      logger.info(`[OutboundMedia] Snapshot taken for ${targetAddress}: ${snapshot.size} files`)
     },
 
     async sendDetectedFiles(target: OutboundTarget, text: string, outboundAdapter?: ChannelOutboundAdapter): Promise<void> {

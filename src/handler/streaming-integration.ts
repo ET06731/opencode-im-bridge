@@ -399,6 +399,11 @@ export function createStreamingBridge(
             logger.info(
               `POST completed for session ${sessionId} (${responseBody.length} bytes)`,
             )
+            // prompt_async returns empty body — skip sync fallback, wait for SSE
+            if (!responseBody.length) {
+              logger.debug(`[StreamingBridge] Empty response body (prompt_async), waiting for SSE events for ${sessionId}`)
+              return
+            }
             // 如果没有流式事件，直接发送同步响应（仅 WeChat 需要特殊处理以防止重复）
             if (!gotFirstEvent && !textBuffer.length) {
               if (settled) return
