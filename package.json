@@ -24,8 +24,7 @@
     "src",
     "bin",
     "README.md",
-    "LICENSE",
-    "CHANGELOG.md"
+    "LICENSE"
   ],
   "bin": {
     "opencode-im-bridge": "bin/opencode-im-bridge.js"
@@ -46,7 +45,6 @@
     "@opencode-ai/sdk": "^1.2.27",
     "@wechatbot/wechatbot": "^2.0.1",
     "cron": "^3.5.0",
-    "discord.js": "^14.25.1",
     "express": "^4.21.0",
     "opencode-im-bridge": "^0.40.0",
     "qq-official-bot": "^1.0.12",

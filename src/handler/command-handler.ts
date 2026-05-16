@@ -1573,14 +1573,10 @@ export function createCommandHandler(deps: CommandHandlerDeps): CommandHandler {
       lines.push(t(locale, "status.cannotConnect"))
     }
 
-    const modelStr = await getCurrentModelFromFile()
-    if (modelStr) {
-      lines.push(t(locale, "status.model", { model: modelStr }))
-    } else {
-      lines.push(t(locale, "status.modelUnconfigured"))
-    }
-
     const mapping = sessionManager.getSession(feishuKey)
+
+    // 模型优先级：opencode API 实时查询 > session 映射 > model.json 全局
+    let modelStr: string | undefined
     if (mapping) {
       lines.push(t(locale, "status.sessionBound", { sessionId: mapping.session_id }))
       lines.push(t(locale, "status.agent", { agent: mapping.agent }))
@@ -1590,16 +1586,31 @@ export function createCommandHandler(deps: CommandHandlerDeps): CommandHandler {
         if (sessionResp.ok) {
           const sessionData = (await sessionResp.json()) as {
             title?: string
+            model?: { providerID?: string; id?: string }
           }
           if (sessionData.title) lines.push(t(locale, "status.sessionTitle", { title: sessionData.title }))
+          const m = sessionData.model
+          if (m?.providerID && m?.id) {
+            modelStr = `${m.providerID}/${m.id}`
+          }
         }
       } catch {
         // Session info fetch failed — not critical
       }
+    }
+    if (!modelStr) {
+      modelStr = mapping?.model ?? await getCurrentModelFromFile()
+    }
+    if (modelStr) {
+      lines.push(t(locale, "status.model", { model: modelStr }))
+    } else {
+      lines.push(t(locale, "status.modelUnconfigured"))
+    }
 
-      let contextUsed = 0
-      let contextLimit = 0
+    let contextUsed = 0
+    let contextLimit = 0
 
+    if (mapping) {
       try {
         const cwd = process.env.OPENCODE_CWD || process.cwd()
         const msgsResp = await fetch(`${serverUrl}/session/${mapping.session_id}/message?limit=1000`, {
