@@ -126,6 +126,12 @@ export function buildHelpCard(): Record<string, unknown> {
         },
         {
           tag: "button",
+          text: { tag: "plain_text", content: "🆕 新建会话" },
+          type: "primary",
+          value: { action: "command_execute", command: "/new" },
+        },
+        {
+          tag: "button",
           text: { tag: "plain_text", content: "🔌 连接会话" },
           type: "primary",
           value: { action: "command_execute", command: "/sessions" },
@@ -133,7 +139,6 @@ export function buildHelpCard(): Record<string, unknown> {
         {
           tag: "button",
           text: { tag: "plain_text", content: "📂 项目" },
-          type: "primary",
           value: { action: "command_execute", command: "/projects" },
         },
         {
@@ -160,6 +165,21 @@ export function buildHelpCard(): Record<string, unknown> {
           tag: "button",
           text: { tag: "plain_text", content: "🔗 分享会话" },
           value: { action: "command_execute", command: "/share" },
+        },
+        {
+          tag: "button",
+          text: { tag: "plain_text", content: "🔓 取消分享" },
+          value: { action: "command_execute", command: "/unshare" },
+        },
+        {
+          tag: "button",
+          text: { tag: "plain_text", content: "✏️ 重命名" },
+          value: { action: "command_execute", command: "/rename" },
+        },
+        {
+          tag: "button",
+          text: { tag: "plain_text", content: "🕒 定时任务" },
+          value: { action: "command_execute", command: "/cron" },
         },
         {
           tag: "button",
