@@ -1,6 +1,6 @@
 {
   "name": "opencode-im-bridge",
-  "version": "0.45.1",
+  "version": "0.46.0",
   "description": "Bridge Feishu/Lark group chats to opencode TUI sessions — real-time two-way messaging with streaming cards / 飞书群聊 ↔ opencode TUI 双向实时桥接",
   "license": "MIT",
   "keywords": [

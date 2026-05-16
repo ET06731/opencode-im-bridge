@@ -1,5 +1,54 @@
 # Changelog
 
+## 0.46.0 - 2026-05-16
+
+### Features
+- Add DingTalk channel support with stream client and webhook server
+- Add service launcher for auto-starting opencode server
+- Add command context with fork source resolution for cross-channel reply handling
+- Add fetchWithWakeRetry for waking server on incoming messages
+- Improve setup wizard with interactive config prompts and env detection
+- Add /variants command support with model variant selection
+- Add /help card buttons for /new, /unshare, /rename, /cron commands
+- Add i18n updates for new features (en/zh-CN)
+
+### Fixes
+- Fix scheduled task execution: schedule parsing, non-blocking startup, idle detection, result delivery (by @shf-275599)
+- Fix /status model display to prioritize session API over file-based detection
+- Improve Discord/QQ/Telegram plugin error handling and reconnection logic
+- Fix card-builder for variant selector display
+- Fix modelStr variable shadowing in handleStatus
+- Fix CronJobSchema missing fields and package files
+
+### Documentation
+- Update README with current project structure and DingTalk support
+- Update example config with new options
+- Add donation QR code
+- Add skills-lock.json
+
+## 0.45.2-beta.0 - 2026-05-13
+
+### Features
+- Add service launcher for auto-starting opencode server (reliability module)
+- Add DingTalk channel support with stream client and webhook server
+- Add command context with fork source resolution for cross-channel reply handling
+- Add fetchWithWakeRetry for waking server on incoming messages
+- Improve setup wizard with interactive config prompts and env detection
+- Add i18n updates for new features (en/zh-CN)
+- Add QQ plugin test suite
+- Add scheduled task seeder
+
+### Fixes
+- Improve Discord/QQ/Telegram plugin error handling and reconnection logic
+- Fix card-builder for variant selector display
+- Improve heartbeat service with service launcher integration
+- Fix startup scripts for Windows bridge
+
+### Documentation
+- Update README with current project structure and DingTalk support
+- Update example config with new options
+- Add skills-lock.json
+
 ## 0.45.1 - 2026-05-09
 
 ### Features
