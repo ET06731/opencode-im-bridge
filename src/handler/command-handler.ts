@@ -1641,7 +1641,6 @@ export function createCommandHandler(deps: CommandHandlerDeps): CommandHandler {
               models?: Record<string, { name?: string; limit?: { context?: number } }>
             }>
           }
-          const modelStr = await getCurrentModelFromFile()
           if (modelStr) {
             const parts = modelStr.split("/")
             const provId = parts[0]
