@@ -117,6 +117,8 @@ async function waitForResponse(
   logger: ExecutorOptions["logger"]
 ): Promise<string> {
   const start = Date.now()
+  let lastUpdated = 0
+  let stableCount = 0
   while (Date.now() - start < maxWaitMs) {
     await new Promise((r) => setTimeout(r, pollInterval))
 
@@ -126,25 +128,38 @@ async function waitForResponse(
       continue
     }
 
-    const session = (await statusResp.json()) as { status?: { type?: string } }
-    if (session.status?.type === "idle") {
-      const msgResp = await fetch(`${serverUrl}/session/${sessionId}/message?limit=50`)
-      if (msgResp.ok) {
-        type MsgPart = { type?: string; text?: string }
-        type Message = { role?: string; parts?: MsgPart[] }
-        const messages = (await msgResp.json()) as Message[]
-        // 取最后一个 assistant 消息的所有 text parts 并拼接
-        const assistantMsgs = messages.filter((m) => m.role === "assistant")
-        const last = assistantMsgs[assistantMsgs.length - 1]
-        if (last?.parts) {
-          const text = last.parts
-            .filter((p) => p.type === "text" && p.text)
-            .map((p) => p.text!)
-            .join("")
-          return text || "(no response)"
+    const session = (await statusResp.json()) as {
+      status?: { type?: string }
+      time?: { updated?: number }
+      tokens?: { output?: number }
+    }
+    // Detect idle: opencode v1.14+ no longer returns status.type,
+    // use time.updated stability + token output as idle signal
+    const currentUpdated = session.time?.updated ?? 0
+    if (currentUpdated === lastUpdated && session.tokens?.output && session.tokens.output > 0) {
+      stableCount++
+      if (stableCount >= 2) {
+        const msgResp = await fetch(`${serverUrl}/session/${sessionId}/message?limit=50`)
+        if (msgResp.ok) {
+          type MsgPart = { type?: string; text?: string }
+          type Message = { role?: string; parts?: MsgPart[] }
+          const messages = (await msgResp.json()) as Message[]
+          // 跳过第一条（用户 prompt），取最后一条有 text 的消息
+          const responseMsgs = messages.slice(1)
+          const last = responseMsgs[responseMsgs.length - 1]
+          if (last?.parts) {
+            const text = last.parts
+              .filter((p) => p.type === "text" && p.text)
+              .map((p) => p.text!)
+              .join("")
+            return text || "(no response)"
+          }
         }
+        return "(failed to retrieve response)"
       }
-      return "(failed to retrieve response)"
+    } else {
+      if (currentUpdated !== lastUpdated) stableCount = 0
+      lastUpdated = currentUpdated
     }
   }
 

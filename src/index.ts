@@ -468,17 +468,21 @@ async function main(): Promise<void> {
 
   let webhookServer: any = undefined
   if (config.feishu) {
-    // Start webhook server for card action callbacks
+    // Start webhook server for card action callbacks (non-blocking fallback)
     logger.info("Phase 7b: Starting webhook server for card actions...")
     const webhookPort = parseInt(process.env.FEISHU_WEBHOOK_PORT ?? config.feishu.webhookPort.toString(), 10)
-    webhookServer = await createFeishuGateway({
+    createFeishuGateway({
       port: webhookPort,
       verificationToken: config.feishu.verificationToken ?? "",
       onMessage: handleMessage,
       onCardAction: handleCardAction,
       dedup,
+    }).then((server) => {
+      webhookServer = server
+      logger.info(`Webhook server started on port ${webhookPort}`)
+    }).catch((err) => {
+      logger.warn(`Webhook server failed to start (non-fatal, using WebSocket for callbacks): ${err}`)
     })
-    logger.info(`Webhook server started on port ${webhookPort}`)
   }
 
   // ═══════════════════════════════════════════

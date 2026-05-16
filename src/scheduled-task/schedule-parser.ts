@@ -208,7 +208,7 @@ function parseChineseSchedule(text: string): ParsedTaskSchedule | null {
     let minute = 0
 
     // Try colon format: "19:00" or "8:15"
-    const colonMatch = timePart.match(/^(\d{1,2}):(\d{1,2})$/)
+    const colonMatch = timePart.match(/^(\d{1,2}):(\d{1,2})/)
     if (colonMatch) {
       hour = parseInt(colonMatch[1]!, 10)
       minute = parseInt(colonMatch[2]!, 10)
@@ -222,7 +222,7 @@ function parseChineseSchedule(text: string): ParsedTaskSchedule | null {
         }
       } else {
         // Just digits without "点": "19"
-        const justDigits = timePart.match(/^(\d+)$/)
+        const justDigits = timePart.match(/^(\d+)/)
         if (justDigits) {
           hour = parseInt(justDigits[1]!, 10)
         }

@@ -859,6 +859,11 @@ export function createCommandHandler(deps: CommandHandlerDeps): CommandHandler {
       const fastParsed = tryParseSchedule(inlineInput)
       if (fastParsed) {
         manager.setSchedule(inlineInput, fastParsed)
+        // 从输入中提取时间后面的文本作为任务描述
+        const prompt = extractPromptFromInput(inlineInput)
+        if (prompt) {
+          manager.setPrompt(prompt)
+        }
         const state = manager.getState()
         if (state) {
           const result = buildTaskCreationCard(state.stage, state, locale, channelId)
@@ -1484,6 +1489,25 @@ export function createCommandHandler(deps: CommandHandlerDeps): CommandHandler {
 
     const statusText = lines.join("\n")
     await replyText(chatId, messageId, statusText, channelId)
+  }
+
+  function extractPromptFromInput(input: string): string | undefined {
+    const schedulePatterns = [
+      /^每周[一二三四五六日天][^\d]*\d{1,2}[：:]?\d{1,2}/,
+      /^每[隔个]?\d+小时/,
+      /^每[隔个]?[零一二三四五六七八九十\d]+分钟/,
+      /^每天\d{1,2}[：:]\d{1,2}/,
+      /^每天[一二三四五六七八九十\d]+点[钟]?/,
+      /^\d{4}-\d{2}-\d{2}\s+\d{1,2}:\d{2}/,
+    ]
+    for (const p of schedulePatterns) {
+      const matched = input.match(p)
+      if (matched) {
+        const remaining = input.slice(matched[0].length).replace(/^[。，,、\s]+/, "").trim()
+        if (remaining.length > 0) return remaining
+      }
+    }
+    return undefined
   }
 
   const handleCommand = async function handleCommand(

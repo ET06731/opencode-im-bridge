@@ -140,11 +140,13 @@ export class WechatPlugin extends BaseChannelPlugin {
         }
 
         try {
-          await this.bot.start()
-          this.logger.info("[WechatPlugin] Message polling started")
+          this.bot.start().then(() => {
+            this.logger.info("[WechatPlugin] Message polling started")
+          }).catch((err) => {
+            this.logger.error(`[WechatPlugin] Failed to start polling: ${err}`)
+          })
         } catch (err) {
           this.logger.error(`[WechatPlugin] Failed to start polling: ${err}`)
-          throw err
         }
 
         signal.addEventListener("abort", () => {
